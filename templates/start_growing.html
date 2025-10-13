@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start Growing - {{ crop_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="growing-guide-container">
+        <!-- Back Button -->
+        <a href="{{ url_for('crop_suggestion') }}" class="back-button">
+            <i class="fas fa-arrow-left"></i>
+            Back to Suggestions
+        </a>
+        
+        <!-- Crop Overview Section -->
+        <div class="crop-overview-card">
+            <div class="crop-header">
+                <h1>Growing Guide: {{ crop_name }}</h1>
+                <div class="crop-meta">
+                    <span class="crop-type">{{ crop_type }}</span>
+                    <div class="match-score">
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: {{ match_percentage }}%"></div>
+                        </div>
+                        <span>{{ match_percentage }}% Match</span>
+                    </div>
+                </div>
+            </div>
+            <div class="yield-profit-summary">
+                <div class="summary-item">
+                    <i class="fas fa-seedling"></i>
+                    <div>
+                        <h3>Expected Yield</h3>
+                        <p>{{ expected_yield }} per hectare</p>
+                    </div>
+                </div>
+                <div class="summary-item">
+                    <i class="fas fa-coins"></i>
+                    <div>
+                        <h3>Estimated Profit</h3>
+                        <p>₹{{ estimated_profit }} per hectare</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Growing Steps -->
+        <div class="growing-steps">
+            <!-- Step 1: Land Preparation -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <h2>Land Preparation</h2>
+                </div>
+                <div class="step-content">
+                    <div class="instruction-list">
+                        {% for step in land_preparation %}
+                        <div class="instruction-item">
+                            <i class="fas fa-check-circle"></i>
+                            <p>{{ step }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="soil-test-results">
+                        <h3>Recommended Soil Parameters</h3>
+                        <div class="soil-parameters">
+                            <div class="parameter">
+                                <span>pH</span>
+                                <strong>{{ soil_ph }}</strong>
+                            </div>
+                            <div class="parameter">
+                                <span>N</span>
+                                <strong>{{ soil_n }}%</strong>
+                            </div>
+                            <div class="parameter">
+                                <span>P</span>
+                                <strong>{{ soil_p }}%</strong>
+                            </div>
+                            <div class="parameter">
+                                <span>K</span>
+                                <strong>{{ soil_k }}%</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Seed Selection -->
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <h2>Seed Selection & Sowing</h2>
+                </div>
+                <div class="step-content">
+                    <div class="seed-varieties">
+                        <h3>Recommended Varieties</h3>
+                        <div class="variety-list">
+                            {% for variety in seed_varieties %}
+                            <div class="variety-item">
+                                <strong>{{ variety.name }}</strong>
+                                <p>{{ variety.description }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="sowing-details">
+                        <div class="detail-item">
+                            <i class="fas fa-weight-hanging"></i>
+                            <div>
+                                <h4>Seed Rate</h4>
+                                <p>{{ seed_rate }} kg/hectare</p>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-calendar-alt"></i>
+                            <div>
+                                <h4>Sowing Season</h4>
+                                <p>{{ sowing_season }}</p>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-tools"></i>
+                            <div>
+                                <h4>Sowing Method</h4>
+                                <p>{{ sowing_method }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Steps 3-6 -->
+            {% for step in growing_steps[2:] %}
+            <div class="step-card">
+                <div class="step-header">
+                    <div class="step-number">{{ loop.index + 2 }}</div>
+                    <h2>{{ step.title }}</h2>
+                </div>
+                <div class="step-content">
+                    {{ step.content | safe }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Interactive Tools Section -->
+        <div class="interactive-tools">
+            <div class="tool-card timeline">
+                <h3><i class="fas fa-calendar-week"></i> Task Timeline</h3>
+                <div class="timeline-container" id="taskTimeline"></div>
+            </div>
+
+            <div class="tool-card calculator">
+                <h3><i class="fas fa-calculator"></i> Cost Estimator</h3>
+                <div class="calculator-container" id="costCalculator"></div>
+            </div>
+
+            <div class="tool-card weather">
+                <h3><i class="fas fa-cloud-sun"></i> Weather Alerts</h3>
+                <div class="weather-container" id="weatherAlerts"></div>
+            </div>
+        </div>
+
+        <!-- Start Monitoring Button -->
+        <div class="monitoring-section">
+            <button class="start-monitoring-btn" onclick="startMonitoring()">
+                <i class="fas fa-chart-line"></i>
+                Start Monitoring Your Crop
+            </button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/growing-guide.js') }}"></script>
+    <script>
+    function goBack() {
+        // Use history state if available, otherwise redirect
+        if (document.referrer.includes('/crop-suggestion')) {
+            window.history.back();
+        } else {
+            window.location.href = '/crop-suggestion';
+        }
+    }
+    </script>
+</body>
+</html>

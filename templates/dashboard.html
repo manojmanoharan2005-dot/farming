@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Farming Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="dashboard-body">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                        <button onclick="this.parentElement.remove()">&times;</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="dashboard-container">
+        <!-- Green Sidebar -->
+        <div class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="fas fa-seedling"></i>
+                </div>
+                <div class="brand-text">
+                    <div class="brand-name">Farming Assistant</div>
+                    <div class="brand-tagline">Smart Agriculture Platform</div>
+                </div>
+            </div>
+            
+            <div class="user-welcome">
+                <div class="welcome-text">
+                    <div class="welcome-line">Welcome back,</div>
+                    <div class="user-name">{{ user_name }}!</div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-item active">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('crop_suggestion') }}" class="nav-item">
+                    <i class="fas fa-seedling"></i>
+                    <span>Crop Suggestion</span>
+                </a>
+                <a href="{{ url_for('fertilizer_advice') }}" class="nav-item">
+                    <i class="fas fa-vial"></i>
+                    <span>Fertilizer Advice</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-cloud-sun"></i>
+                    <span>Weather</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Market Prices</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-hand-holding-usd"></i>
+                    <span>Govt Schemes</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Seasonal Calendar</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Profit Tracker</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-bug"></i>
+                    <span>Disease Detection</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="dashboard-content">
+            <!-- Top Header -->
+            <div class="top-header">
+                <div class="header-left">
+                    <h1>Dashboard</h1>
+                    <p>Monitor your farm's performance and get insights</p>
+                </div>
+                <div class="header-right">
+                    <div class="date-display">
+                        <span>Today</span>
+                        <span class="current-date">September 22, 2025</span>
+                    </div>
+                    <div class="user-profile-header">
+                        <a href="{{ url_for('logout') }}" class="logout-btn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Welcome Banner -->
+            <div class="welcome-banner">
+                <div class="banner-content">
+                    <h2>Good Morning, {{ user_name }}! 👋</h2>
+                    <p>Your farm is looking great today. Here's what's happening.</p>
+                </div>
+                <div class="banner-icon">
+                    <i class="fas fa-tractor"></i>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card green">
+                    <div class="stat-content">
+                        <div class="stat-label">Farm Size</div>
+                        <div class="stat-value">5.2 hectares</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-map"></i>
+                    </div>
+                </div>
+                
+                <div class="stat-card blue">
+                    <div class="stat-content">
+                        <div class="stat-label">Active Crops</div>
+                        <div class="stat-value">3 Types</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-seedling"></i>
+                    </div>
+                </div>
+                
+                <div class="stat-card orange">
+                    <div class="stat-content">
+                        <div class="stat-label">This Month</div>
+                        <div class="stat-value">₹60K</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                </div>
+                
+                <div class="stat-card purple">
+                    <div class="stat-content">
+                        <div class="stat-label">Health Score</div>
+                        <div class="stat-value">92%</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Cards Grid -->
+            <div class="cards-grid">
+                <!-- Weather Card -->
+                <div class="dashboard-card weather-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-sun weather-icon"></i>
+                            Today's Weather
+                        </div>
+                        <div class="weather-emoji">☀️</div>
+                    </div>
+                    <div class="card-content">
+                        <div class="temperature">{{ weather.temperature }}°C</div>
+                        <div class="weather-status">Partly Cloudy</div>
+                        <div class="weather-details">
+                            <div class="weather-item">
+                                <span class="label">Humidity</span>
+                                <span class="value">{{ weather.humidity }}%</span>
+                            </div>
+                            <div class="weather-item">
+                                <span class="label">Rain Chance</span>
+                                <span class="value">{{ weather.rain_chance }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommended Crop Card -->
+                <div class="dashboard-card crop-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-seedling"></i>
+                            Recommended Crop
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="crop-name">Rice (Basmati)</div>
+                        <div class="crop-badges">
+                            <span class="badge success">95% Match</span>
+                            <span class="badge profit">High Profit</span>
+                        </div>
+                        <div class="crop-description">
+                            Perfect for your soil type and current season. Expected yield: 45-50 quintals/hectare.
+                        </div>
+                        <button class="btn-success">View Details</button>
+                    </div>
+                </div>
+
+                <!-- Fertilizer Alert Card -->
+                <div class="dashboard-card fertilizer-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-vial"></i>
+                            Fertilizer Alert
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="fertilizer-type">NPK (10:26:26)</div>
+                        <div class="fertilizer-amount">25 kg/acre</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 75%;"></div>
+                        </div>
+                        <div class="progress-text">75% Application Complete</div>
+                        <div class="next-application">Next application due in 5 days</div>
+                        <button class="btn-orange">Schedule Application</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
+                    </div>
+                    <div class="calendar-content">
+                        <div class="calendar-item sowing">
+                            <div class="calendar-activity">Sowing Season</div>
+                            <div class="calendar-crops">Rice, Cotton, Sugarcane</div>
+                        </div>
+                        <div class="calendar-item harvesting">
+                            <div class="calendar-activity">Harvesting Season</div>
+                            <div class="calendar-crops">Wheat, Mustard</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profit Tracker Chart -->
+                <div class="dashboard-card chart-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-bar"></i> Profit & Expense Tracker</h3>
+                    </div>
+                    <div class="chart-content">
+                        <canvas id="profitChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Recent Activity Card -->
+                <div class="dashboard-card activity-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-item">
+                            <div class="activity-icon green">
+                                <i class="fas fa-seedling"></i>
+                            </div>
+                            <div class="activity-details">
+                                <div class="activity-title">Rice planting completed</div>
+                                <div class="activity-time">2 hours ago</div>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon blue">
+                                <i class="fas fa-cloud-rain"></i>
+                            </div>
+                            <div class="activity-details">
+                                <div class="activity-title">Weather alert received</div>
+                                <div class="activity-time">1 day ago</div>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon orange">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                            <div class="activity-details">
+                                <div class="activity-title">Market price updated</div>
+                                <div class="activity-time">2 days ago</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
+</body>
+</html>

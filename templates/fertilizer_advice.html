@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fertilizer Advice - Farming Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="dashboard-body">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                        <button onclick="this.parentElement.remove()">&times;</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="fas fa-seedling"></i>
+                </div>
+                <div class="brand-text">
+                    <div class="brand-name">Farming Assistant</div>
+                    <div class="brand-tagline">Smart Agriculture Platform</div>
+                </div>
+            </div>
+            
+            <div class="user-welcome">
+                <div class="welcome-text">
+                    <div class="welcome-line">Welcome back,</div>
+                    <div class="user-name">{{ user_name }}!</div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-item">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('crop_suggestion') }}" class="nav-item">
+                    <i class="fas fa-seedling"></i>
+                    <span>Crop Suggestion</span>
+                </a>
+                <a href="{{ url_for('fertilizer_advice') }}" class="nav-item active">
+                    <i class="fas fa-vial"></i>
+                    <span>Fertilizer Advice</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-cloud-sun"></i>
+                    <span>Weather</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Market Prices</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-hand-holding-usd"></i>
+                    <span>Govt Schemes</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Seasonal Calendar</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Profit Tracker</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-bug"></i>
+                    <span>Disease Detection</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="dashboard-content">
+            <!-- Top Header -->
+            <div class="top-header">
+                <div class="header-left">
+                    <h1>AI-Powered Fertilizer Recommendation</h1>
+                    <p>Get scientific fertilizer suggestions based on your soil and crop requirements</p>
+                </div>
+                <div class="header-right">
+                    <div class="date-display">
+                        <span>Today</span>
+                        <span class="current-date">September 22, 2025</span>
+                    </div>
+                    <div class="user-profile-header">
+                        <a href="{{ url_for('logout') }}" class="logout-btn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fertilizer Suggestion Tool -->
+            <div class="fertilizer-advice-container">
+                <div class="fertilizer-card">
+                    <div class="fertilizer-header">
+                        <div class="fertilizer-tool-icon">
+                            <i class="fas fa-vial"></i>
+                        </div>
+                        <div class="fertilizer-tool-info">
+                            <h2>AI-Powered Fertilizer Recommendation System</h2>
+                            <p>Get scientific fertilizer suggestions based on your soil test results and crop requirements</p>
+                        </div>
+                    </div>
+
+                    <form class="fertilizer-form" method="POST">
+                        <div class="fertilizer-form-grid">
+                            <!-- Soil Test Results -->
+                            <div class="fertilizer-form-section">
+                                <h3><i class="fas fa-flask"></i> Soil Test Results</h3>
+                                
+                                <div class="fertilizer-form-group">
+                                    <label for="nitrogen">Nitrogen (N):</label>
+                                    <input type="number" name="nitrogen" id="nitrogen" min="0" max="140" 
+                                           value="{{ form_data.nitrogen or 40 }}" required>
+                                    <span class="fertilizer-input-hint">Current nitrogen level in soil (mg/kg)</span>
+                                </div>
+
+                                <div class="fertilizer-form-group">
+                                    <label for="phosphorus">Phosphorus (P):</label>
+                                    <input type="number" name="phosphorus" id="phosphorus" min="5" max="145"
+                                           value="{{ form_data.phosphorus or 30 }}" required>
+                                    <span class="fertilizer-input-hint">Current phosphorus level in soil (mg/kg)</span>
+                                </div>
+
+                                <div class="fertilizer-form-group">
+                                    <label for="potassium">Potassium (K):</label>
+                                    <input type="number" name="potassium" id="potassium" min="5" max="205"
+                                           value="{{ form_data.potassium or 20 }}" required>
+                                    <span class="fertilizer-input-hint">Current potassium level in soil (mg/kg)</span>
+                                </div>
+                            </div>
+
+                            <!-- Crop & Environmental Info -->
+                            <div class="fertilizer-form-section">
+                                <h3><i class="fas fa-leaf"></i> Crop & Environmental Info</h3>
+                                
+                                <div class="fertilizer-form-group">
+                                    <label for="crop">Select Crop:</label>
+                                    <select name="crop" id="crop" required>
+                                        <option value="">Choose your crop</option>
+                                        <option value="rice" {{ 'selected' if form_data.crop == 'rice' }}>Rice</option>
+                                        <option value="wheat" {{ 'selected' if form_data.crop == 'wheat' }}>Wheat</option>
+                                        <option value="maize" {{ 'selected' if form_data.crop == 'maize' }}>Maize</option>
+                                        <option value="cotton" {{ 'selected' if form_data.crop == 'cotton' }}>Cotton</option>
+                                        <option value="sugarcane" {{ 'selected' if form_data.crop == 'sugarcane' }}>Sugarcane</option>
+                                    </select>
+                                </div>
+
+                                <div class="fertilizer-form-group">
+                                    <label for="temperature">Temperature:</label>
+                                    <input type="number" name="temperature" id="temperature" step="0.1" min="8" max="44"
+                                           value="{{ form_data.temperature or 25 }}" required>
+                                    <span class="fertilizer-input-hint">Average temperature (°C)</span>
+                                </div>
+
+                                <div class="fertilizer-form-group">
+                                    <label for="humidity">Humidity:</label>
+                                    <input type="number" name="humidity" id="humidity" step="0.1" min="14" max="100"
+                                           value="{{ form_data.humidity or 70 }}" required>
+                                    <span class="fertilizer-input-hint">Relative humidity (%)</span>
+                                </div>
+
+                                <div class="fertilizer-form-group">
+                                    <label for="moisture">Soil Moisture:</label>
+                                    <input type="number" name="moisture" id="moisture" step="0.1" min="20" max="100"
+                                           value="{{ form_data.moisture or 50 }}" required>
+                                    <span class="fertilizer-input-hint">Soil moisture content (%)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="get-fertilizer-recommendations-btn">
+                            <i class="fas fa-magic"></i>
+                            Get AI Fertilizer Recommendations
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Recommendations Section -->
+                {% if recommendations %}
+                <div class="fertilizer-recommendations-section">
+                    <div class="fertilizer-section-header">
+                        <h3><i class="fas fa-award"></i> Fertilizer Recommendations for {{ crop_name }}</h3>
+                        <p>AI-powered fertilizer suggestions based on your soil test results</p>
+                    </div>
+                    
+                    <div class="fertilizer-recommendations-grid">
+                        {% for fertilizer in recommendations %}
+                        <div class="fertilizer-recommendation-card">
+                            <div class="fertilizer-crop-header">
+                                <div class="fertilizer-crop-info">
+                                    <div class="crop-name">{{ fertilizer.name }}</div>
+                                    <div class="crop-category">{{ fertilizer.type }}</div>
+                                </div>
+                                <div class="fertilizer-suitability-badge">
+                                    <div class="fertilizer-suitability-bar">
+                                        <div class="fertilizer-suitability-fill" style="width: {{ fertilizer.suitability }}%;"></div>
+                                    </div>
+                                    <span class="fertilizer-suitability-text">{{ fertilizer.suitability }}% Match</span>
+                                </div>
+                            </div>
+                            
+                            <div class="fertilizer-crop-details">
+                                <div class="fertilizer-detail-grid">
+                                    <div class="fertilizer-detail-item">
+                                        <i class="fas fa-weight-hanging text-green"></i>
+                                        <div>
+                                            <span class="fertilizer-detail-label">Application Rate</span>
+                                            <span class="fertilizer-detail-value">{{ fertilizer.application_rate }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="fertilizer-detail-item">
+                                        <i class="fas fa-coins text-gold"></i>
+                                        <div>
+                                            <span class="fertilizer-detail-label">Estimated Cost</span>
+                                            <span class="fertilizer-detail-value profit">₹{{ "{:,}".format(fertilizer.cost) }}/acre</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="fertilizer-detail-item">
+                                        <i class="fas fa-clock text-blue"></i>
+                                        <div>
+                                            <span class="fertilizer-detail-label">Application Time</span>
+                                            <span class="fertilizer-detail-value">{{ fertilizer.timing }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="fertilizer-detail-item">
+                                        <i class="fas fa-chart-line text-purple"></i>
+                                        <div>
+                                            <span class="fertilizer-detail-label">Expected Yield Increase</span>
+                                            <span class="fertilizer-detail-value">{{ fertilizer.yield_increase }}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="fertilizer-ideal-conditions">
+                                    <h4>Application Instructions</h4>
+                                    <div class="fertilizer-conditions-grid">
+                                        <div class="fertilizer-condition-item">
+                                            <span class="fertilizer-condition-label">Method:</span>
+                                            <span class="fertilizer-condition-value">{{ fertilizer.application_method }}</span>
+                                        </div>
+                                        <div class="fertilizer-condition-item">
+                                            <span class="fertilizer-condition-label">Frequency:</span>
+                                            <span class="fertilizer-condition-value">{{ fertilizer.frequency }}</span>
+                                        </div>
+                                        <div class="fertilizer-condition-item">
+                                            <span class="fertilizer-condition-label">Best Time:</span>
+                                            <span class="fertilizer-condition-value">{{ fertilizer.best_time }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="fertilizer-crop-actions">
+                                    <button class="fertilizer-btn-outline">
+                                        <i class="fas fa-info-circle"></i>
+                                        Learn More
+                                    </button>
+                                    <button class="fertilizer-btn-success">
+                                        <i class="fas fa-shopping-cart"></i>
+                                        Buy Now
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/fertilizer-advice.js') }}"></script>
+</body>
+</html>

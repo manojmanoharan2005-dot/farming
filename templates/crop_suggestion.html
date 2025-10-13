@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crop Suggestion - Farming Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="dashboard-body">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                        <button onclick="this.parentElement.remove()">&times;</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="dashboard-sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="fas fa-seedling"></i>
+                </div>
+                <div class="brand-text">
+                    <div class="brand-name">Farming Assistant</div>
+                    <div class="brand-tagline">Smart Agriculture Platform</div>
+                </div>
+            </div>
+            
+            <div class="user-welcome">
+                <div class="welcome-text">
+                    <div class="welcome-line">Welcome back,</div>
+                    <div class="user-name">{{ user_name }}!</div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('dashboard') }}" class="nav-item">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('crop_suggestion') }}" class="nav-item active">
+                    <i class="fas fa-seedling"></i>
+                    <span>Crop Suggestion</span>
+                </a>
+                <a href="{{ url_for('fertilizer_advice') }}" class="nav-item">
+                    <i class="fas fa-vial"></i>
+                    <span>Fertilizer Advice</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-cloud-sun"></i>
+                    <span>Weather</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Market Prices</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-hand-holding-usd"></i>
+                    <span>Govt Schemes</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Seasonal Calendar</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Profit Tracker</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i class="fas fa-bug"></i>
+                    <span>Disease Detection</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="dashboard-content">
+            <!-- Top Header -->
+            <div class="top-header">
+                <div class="header-left">
+                    <h1>AI-Powered Crop Recommendation</h1>
+                    <p>Get scientific crop suggestions based on soil nutrients and climate conditions</p>
+                </div>
+                <div class="header-right">
+                    <div class="date-display">
+                        <span>Today</span>
+                        <span class="current-date">September 22, 2025</span>
+                    </div>
+                    <div class="user-profile-header">
+                        <a href="{{ url_for('logout') }}" class="logout-btn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Crop Suggestion Tool -->
+            <div class="crop-suggestion-container">
+                <div class="suggestion-card">
+                    <div class="suggestion-header">
+                        <div class="tool-icon">
+                            <i class="fas fa-seedling"></i>
+                        </div>
+                        <div class="tool-info">
+                            <h2>Smart Crop Recommendation System</h2>
+                            <p>Enter your soil nutrient levels and environmental conditions to get AI-powered crop recommendations</p>
+                        </div>
+                    </div>
+
+                    <form class="suggestion-form" method="POST">
+                        <div class="form-grid">
+                            <!-- Soil Nutrients -->
+                            <div class="form-section">
+                                <h3><i class="fas fa-vial"></i> Soil Nutrients (mg/kg)</h3>
+                                
+                                <div class="form-group">
+                                    <label for="nitrogen">Nitrogen (N):</label>
+                                    <input type="number" name="nitrogen" id="nitrogen" min="0" max="140" 
+                                           value="{{ form_data.nitrogen or 80 }}" required>
+                                    <span class="input-hint">Range: 0-140 mg/kg (Avg: 80)</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="phosphorus">Phosphorus (P):</label>
+                                    <input type="number" name="phosphorus" id="phosphorus" min="5" max="145"
+                                           value="{{ form_data.phosphorus or 60 }}" required>
+                                    <span class="input-hint">Range: 5-145 mg/kg (Avg: 60)</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="potassium">Potassium (K):</label>
+                                    <input type="number" name="potassium" id="potassium" min="5" max="205"
+                                           value="{{ form_data.potassium or 40 }}" required>
+                                    <span class="input-hint">Range: 5-205 mg/kg (Avg: 40)</span>
+                                </div>
+                            </div>
+
+                            <!-- Environmental Conditions -->
+                            <div class="form-section">
+                                <h3><i class="fas fa-thermometer-half"></i> Environmental Conditions</h3>
+                                
+                                <div class="form-group">
+                                    <label for="temperature">Temperature:</label>
+                                    <input type="number" name="temperature" id="temperature" step="0.1" min="8" max="44"
+                                           value="{{ form_data.temperature or 25 }}" required>
+                                    <span class="input-hint">Range: 8-44°C (Avg: 25°C)</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="humidity">Humidity:</label>
+                                    <input type="number" name="humidity" id="humidity" step="0.1" min="14" max="100"
+                                           value="{{ form_data.humidity or 70 }}" required>
+                                    <span class="input-hint">Range: 14-100% (Avg: 70%)</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="ph">Soil pH Level:</label>
+                                    <input type="number" name="ph" id="ph" step="0.1" min="3.5" max="9.9"
+                                           value="{{ form_data.ph or 6.5 }}" required>
+                                    <span class="input-hint">Range: 3.5-9.9 (Avg: 6.5)</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="rainfall">Annual Rainfall:</label>
+                                    <input type="number" name="rainfall" id="rainfall" step="0.1" min="20" max="300"
+                                           value="{{ form_data.rainfall or 100 }}" required>
+                                    <span class="input-hint">Range: 20-300mm (Avg: 100mm)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="get-suggestions-btn">
+                            <i class="fas fa-magic"></i>
+                            Get AI Crop Recommendations
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Recommendations Section -->
+                {% if recommendations %}
+                <div class="recommendations-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-award"></i> Top Crop Recommendations for Your Farm</h3>
+                        <p>Based on AI analysis of {{ recommendations|length }} matching crops from our database</p>
+                    </div>
+                    
+                    <div class="recommendations-grid">
+                        {% for crop in recommendations %}
+                        <div class="crop-recommendation-card">
+                            <div class="crop-header">
+                                <div class="crop-info">
+                                    <div class="crop-name">{{ crop.name }}</div>
+                                    <div class="crop-category">{{ crop.category }}</div>
+                                </div>
+                                <div class="suitability-badge">
+                                    <div class="suitability-bar">
+                                        <div class="suitability-fill" style="width: {{ crop.suitability }}%;"></div>
+                                    </div>
+                                    <span class="suitability-text">{{ crop.suitability }}% Match</span>
+                                </div>
+                            </div>
+                            
+                            <div class="crop-details">
+                                <div class="detail-grid">
+                                    <div class="detail-item">
+                                        <i class="fas fa-chart-line text-green"></i>
+                                        <div>
+                                            <span class="detail-label">Expected Yield</span>
+                                            <span class="detail-value">{{ crop.expected_yield[0] }}-{{ crop.expected_yield[1] }} quintals/hectare</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="detail-item">
+                                        <i class="fas fa-coins text-gold"></i>
+                                        <div>
+                                            <span class="detail-label">Expected Profit</span>
+                                            <span class="detail-value profit">₹{{ "{:,}".format(crop.expected_profit) }}/hectare</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="detail-item">
+                                        <i class="fas fa-calendar-days text-blue"></i>
+                                        <div>
+                                            <span class="detail-label">Growth Period</span>
+                                            <span class="detail-value">{{ crop.growth_duration }} days</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="detail-item">
+                                        <i class="fas fa-tint text-cyan"></i>
+                                        <div>
+                                            <span class="detail-label">Water Need</span>
+                                            <span class="detail-value water-{{ crop.water_requirement.lower().replace(' ', '-') }}">{{ crop.water_requirement }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="detail-item">
+                                        <i class="fas fa-flask text-purple"></i>
+                                        <div>
+                                            <span class="detail-label">NPK Ratio</span>
+                                            <span class="detail-value">{{ crop.fertilizer_npk }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Ideal Conditions -->
+                                <div class="ideal-conditions">
+                                    <h4>Ideal Growing Conditions</h4>
+                                    <div class="conditions-grid">
+                                        <div class="condition-item">
+                                            <span class="condition-label">N:</span>
+                                            <span class="condition-value">{{ crop.avg_requirements.nitrogen }}mg/kg</span>
+                                        </div>
+                                        <div class="condition-item">
+                                            <span class="condition-label">P:</span>
+                                            <span class="condition-value">{{ crop.avg_requirements.phosphorus }}mg/kg</span>
+                                        </div>
+                                        <div class="condition-item">
+                                            <span class="condition-label">K:</span>
+                                            <span class="condition-value">{{ crop.avg_requirements.potassium }}mg/kg</span>
+                                        </div>
+                                        <div class="condition-item">
+                                            <span class="condition-label">Temp:</span>
+                                            <span class="condition-value">{{ crop.avg_requirements.temperature }}°C</span>
+                                        </div>
+                                        <div class="condition-item">
+                                            <span class="condition-label">Humidity:</span>
+                                            <span class="condition-value">{{ crop.avg_requirements.humidity }}%</span>
+                                        </div>
+                                        <div class="condition-item">
+                                            <span class="condition-label">pH:</span>
+                                            <span class="condition-value">{{ crop.avg_requirements.ph }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="crop-actions">
+                                    <button class="btn-outline" onclick="viewDetails('{{ crop.id }}')">
+                                        <i class="fas fa-info-circle"></i> Details
+                                    </button>
+                                    <button class="btn-success" onclick="startGrowingCrop('{{ crop.name }}')">
+                                        <i class="fas fa-seedling"></i> Start Growing
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/crop-suggestion.js') }}"></script>
+</body>
+</html>
+</body>
+</html>
+</body>
+</html>
