@@ -94,7 +94,7 @@
                 <div class="header-right">
                     <div class="date-display">
                         <span>Today</span>
-                        <span class="current-date">September 22, 2025</span>
+                        <span class="current-date">Loading...</span>
                     </div>
                     <div class="user-profile-header">
                         <a href="{{ url_for('logout') }}" class="logout-btn">
@@ -295,8 +295,7 @@
         </div>
     </div>
 
+    <script src="{{ url_for('static', filename='js/date-updater.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-</body>
-</html>
 </body>
 </html>
