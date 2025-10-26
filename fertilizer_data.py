@@ -212,7 +212,7 @@ class FertilizerDataset:
                     
                     total_suitability = min(98, frequency_score + nutrient_match_score + environmental_score)
                     
-                    if total_suitability > 65:
+                    if total_suitability > 50:
                         # Calculate application rate based on deficiency
                         app_rate = self._calculate_optimal_application_rate(
                             fert_info, n_deficit, p_deficit, k_deficit, crop_normalized
@@ -241,9 +241,17 @@ class FertilizerDataset:
                         
                         recommendations.append(recommendation)
             
-            # Sort by suitability and return top 3
+            # If we have fewer than 3 recommendations, add more from database based on nutrient needs
+            if len(recommendations) < 3:
+                additional_ferts = self._get_additional_recommendations(
+                    n_deficit, p_deficit, k_deficit, temp, humid, 
+                    self.fertilizer_database, recommendations
+                )
+                recommendations.extend(additional_ferts)
+            
+            # Sort by suitability and return top 5
             recommendations.sort(key=lambda x: x['suitability'], reverse=True)
-            return recommendations[:3]
+            return recommendations[:5]
             
         except Exception as e:
             print(f"Error in fertilizer recommendation: {e}")
@@ -400,6 +408,53 @@ class FertilizerDataset:
             return "During dry weather conditions"
         else:
             return default_time
+    
+    def _get_additional_recommendations(self, n_deficit: float, p_deficit: float, k_deficit: float,
+                                       temp: float, humid: float, fert_db: Dict, 
+                                       existing_recs: List[Dict]) -> List[Dict[str, Any]]:
+        """Get additional recommendations from database to supplement dataset matches"""
+        additional = []
+        already_recommended = {rec['name'] for rec in existing_recs}
+        
+        # Prioritize fertilizers based on nutrient deficiencies
+        priority_list = []
+        
+        if n_deficit > p_deficit and n_deficit > k_deficit:
+            priority_list = ['Urea', 'Organic Fertilizer', 'Balanced NPK Fertilizer']
+        elif p_deficit > n_deficit and p_deficit > k_deficit:
+            priority_list = ['DAP', 'Balanced NPK Fertilizer', 'Water Retaining Fertilizer']
+        elif k_deficit > n_deficit and k_deficit > p_deficit:
+            priority_list = ['Muriate of Potash', 'Balanced NPK Fertilizer', 'Water Retaining Fertilizer']
+        else:
+            priority_list = ['Balanced NPK Fertilizer', 'DAP', 'Urea']
+        
+        for fert_name in priority_list:
+            if len(additional) >= 2:
+                break
+            if fert_name not in already_recommended and fert_name in fert_db:
+                fert_info = fert_db[fert_name]
+                suitability = 70 - (len(additional) * 5)  # Decrease suitability for additional recommendations
+                
+                app_rate = self._calculate_optimal_application_rate(
+                    fert_info, n_deficit, p_deficit, k_deficit, ''
+                )
+                cost = app_rate * fert_info['cost_per_kg']
+                
+                recommendation = {
+                    'name': fert_info['full_name'],
+                    'type': fert_info['type'],
+                    'suitability': suitability,
+                    'application_rate': f"{app_rate:.1f} kg/acre",
+                    'cost': int(cost),
+                    'timing': 'Season appropriate',
+                    'yield_increase': fert_info['yield_increase'],
+                    'application_method': fert_info['application_method'],
+                    'frequency': fert_info['frequency'],
+                    'best_time': self._get_optimal_time(temp, humid, fert_info['best_time'])
+                }
+                additional.append(recommendation)
+        
+        return additional
     
     def _get_fallback_recommendations(self, crop: str) -> List[Dict[str, Any]]:
         """Get fallback recommendations when dataset is unavailable"""
