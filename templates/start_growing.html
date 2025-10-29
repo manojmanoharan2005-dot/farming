@@ -1,180 +1,467 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Start Growing - {{ crop_name }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Start Growing - {{ crop_name }}</title>
+	<!-- Primary stylesheet (Flask url_for) -->
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+	<!-- Fallback: explicit static path in case url_for isn't resolving in this context -->
+	<link rel="stylesheet" href="/static/css/style.css">
+	<!-- Preload for faster paint -->
+	<link rel="preload" href="/static/css/style.css" as="style">
+	<!-- Added Google Fonts to match other pages -->
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+	<!-- Optional: supply OpenWeather key from Flask/Jinja -->
+	<meta name="openweather-key" content="{{ openweather_api_key }}">
+	<!-- WeatherAPI key (provided) -->
+	<meta name="weatherapi-key" content="22f4bcbb814b4ffc914175512252610">
+
+	<!-- Internal CSS fallback: keeps page styled if external CSS fails -->
+	<style>
+		:root{
+			--bg:#f6faf4;
+			--card:#ffffff;
+			--muted:#6b7280;
+			--accent:#2f855a;
+			--accent-dark:#276749;
+			--glass: rgba(0,0,0,0.04);
+			--radius:10px;
+			--maxw:1100px;
+		}
+
+		html,body{
+			height:100%;
+			margin:0;
+			font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+			background:var(--bg);
+			color:#0f172a;
+			-webkit-font-smoothing:antialiased;
+			-moz-osx-font-smoothing:grayscale;
+		}
+
+		.dashboard-body { /* used across templates */
+			padding:24px;
+		}
+
+		.growing-guide-container{
+			max-width:var(--maxw);
+			margin:20px auto;
+			padding:20px;
+			gap:20px;
+			display:flex;
+			flex-direction:column;
+		}
+
+		.back-button{
+			display:inline-flex;
+			align-items:center;
+			gap:8px;
+			text-decoration:none;
+			color:var(--accent-dark);
+			background:transparent;
+			padding:8px 12px;
+			border-radius:8px;
+			font-weight:600;
+			margin-bottom:8px;
+		}
+
+		.crop-overview-card{
+			background:var(--card);
+			border-radius:var(--radius);
+			box-shadow:0 6px 20px var(--glass);
+			padding:18px;
+			display:flex;
+			flex-direction:column;
+			gap:12px;
+		}
+
+		.crop-header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+		.crop-header h1{margin:0;font-size:1.4rem}
+		.crop-meta{display:flex;align-items:center;gap:12px;font-size:0.95rem;color:var(--muted)}
+
+		.match-score{display:flex;align-items:center;gap:10px}
+		.score-bar{background:#e6f2ea;border-radius:999px;height:10px;width:140px;overflow:hidden}
+		.score-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-dark));display:block}
+
+		.yield-profit-summary{display:flex;gap:18px;margin-top:8px;flex-wrap:wrap}
+		.summary-item{display:flex;gap:12px;align-items:center;background:linear-gradient(180deg,#fff,#fbfff8);padding:12px;border-radius:8px;flex:1;min-width:220px}
+		.summary-item i{font-size:20px;color:var(--accent-dark)}
+
+		.growing-steps{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px}
+		.step-card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 6px 18px rgba(10,20,30,0.04)}
+		.step-header{display:flex;align-items:center;gap:14px}
+		.step-number{background:#eef6ef;color:var(--accent);width:38px;height:38px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700}
+		.step-header h2{margin:0;font-size:1.05rem}
+
+		.instruction-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+		.instruction-item{display:flex;gap:10px;align-items:flex-start;color:#0b1220}
+		.instruction-item i{color:var(--accent);margin-top:4px}
+
+		.soil-test-results{margin-top:12px}
+		.soil-parameters{display:flex;gap:12px;flex-wrap:wrap}
+		.parameter{background:#f8fff7;padding:8px 10px;border-radius:8px;font-weight:600;color:var(--accent-dark)}
+
+		.seed-varieties .variety-item{padding:10px;border-radius:8px;background:#fff;margin-bottom:8px;box-shadow:0 4px 10px rgba(10,20,30,0.03)}
+
+		.sowing-details{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+		.detail-item{display:flex;gap:12px;align-items:center;min-width:200px}
+		.detail-item i{font-size:20px;color:#4a5568}
+
+		.interactive-tools{
+			/* was: repeat(auto-fit,minmax(240px,1fr)) and gap:12px */
+			grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+			gap:16px;
+			align-items:stretch;
+			grid-auto-rows:1fr;
+		}
+		.tool-card{
+			/* ensure equal height columns */
+			display:flex;
+			flex-direction:column;
+			height:100%;
+		}
+		.tool-card h3{margin-bottom:12px;display:flex;align-items:center;gap:8px}
+
+		.monitoring-section{text-align:center;margin-top:18px}
+		.start-monitoring-btn{background:var(--accent);color:#fff;border:none;padding:12px 18px;border-radius:8px;font-weight:700;cursor:pointer}
+		.start-monitoring-btn i{margin-right:8px}
+
+		/* Task Timeline */
+		.tl-form{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+		.tl-form input{padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff}
+		.tl-form .btn-sm{padding:10px 12px;border:none;background:var(--accent);color:#fff;border-radius:8px;cursor:pointer;font-weight:700}
+		.tl-list{display:flex;flex-direction:column;gap:8px}
+		.tl-item{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:8px;padding:10px;box-shadow:0 4px 10px rgba(10,20,30,0.03)}
+		.tl-item.done{opacity:.7;text-decoration:line-through}
+		.tl-actions{display:flex;gap:8px}
+		.pill{padding:4px 8px;border-radius:999px;background:#eef6ef;color:var(--accent-dark);font-size:.8rem}
+		/* Cost Estimator */
+		.calc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:10px}
+		.calc-grid input{padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff}
+		.calc-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+		.calc-card{background:#fff;border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(10,20,30,0.04)}
+		/* Weather Alerts */
+		.wx-list{display:flex;flex-direction:column;gap:8px}
+		.wx-item{background:#fff;border-radius:8px;padding:10px;box-shadow:0 4px 10px rgba(10,20,30,0.03);display:flex;justify-content:space-between;align-items:center}
+		.wx-alert{background:#fff7ed;color:#9a3412;padding:4px 8px;border-radius:999px;font-size:.8rem}
+		.weather .pill{align-self:flex-start;margin-top:8px}
+
+		/* Harvest Planner — improved styles */
+		.harvest-planner { display:flex; flex-direction:column; }
+		.harvest-planner h3 { margin-bottom:8px; }
+		.harvest-planner .hp-form { display:flex; flex-direction:column; gap:12px; }
+		.harvest-planner .hp-grid {
+			display:grid;
+			grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+			gap:12px;
+		}
+		.harvest-planner .hp-field { display:flex; flex-direction:column; gap:6px; }
+		.harvest-planner .hp-field label {
+			font-size:.9rem;
+			color:var(--muted);
+			font-weight:600;
+		}
+		.harvest-planner .hp-field input {
+			width:100%;
+			height:42px;
+			box-sizing:border-box;
+			padding:8px 12px;
+			border:1px solid #d1d5db;
+			border-radius:8px;
+			background:#fff;
+			outline:none;
+			transition:border .2s, box-shadow .2s;
+		}
+		.harvest-planner .hp-field input:focus {
+			border-color:var(--accent);
+			box-shadow:0 0 0 3px rgba(47,133,90,.15);
+		}
+
+		/* Primary action button alignment */
+		.harvest-planner .start-monitoring-btn {
+			align-self:flex-start;
+			margin-top:2px;
+		}
+
+		/* Results card */
+		.hp-result-card {
+			margin-top:14px;
+			background:var(--card);
+			border:1px solid #eef2f7;
+			border-radius:12px;
+			padding:14px;
+			box-shadow:0 6px 16px rgba(10,20,30,0.04);
+		}
+		/* Compact grid for rows on larger screens */
+		@media (min-width:700px){
+			.hp-result-card .hp-row-wrap{
+				display:grid;
+				grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+				gap:10px;
+			}
+		}
+
+		/* Key/value rows */
+		.hp-row {
+			display:flex;
+			justify-content:space-between;
+			align-items:center;
+			gap:12px;
+			margin:6px 0;
+			color:#0b1220;
+		}
+		.hp-row strong { font-weight:700; }
+
+		/* Progress */
+		.hp-progress {
+			width:100%;
+			height:12px;
+			background:#eef6ef;
+			border-radius:999px;
+			margin-top:12px;
+			overflow:hidden;
+		}
+		.hp-progress-fill {
+			height:100%;
+			background:linear-gradient(90deg,var(--accent),var(--accent-dark));
+			width:0%;
+			transition:width .35s ease;
+		}
+		.hp-progress-text {
+			text-align:right;
+			font-size:.9rem;
+			color:var(--muted);
+			margin-top:6px;
+		}
+	</style>
 </head>
-<body>
-    <div class="growing-guide-container">
-        <!-- Back Button -->
-        <a href="{{ url_for('crop_suggestion') }}" class="back-button">
-            <i class="fas fa-arrow-left"></i>
-            Back to Suggestions
-        </a>
-        
-        <!-- Crop Overview Section -->
-        <div class="crop-overview-card">
-            <div class="crop-header">
-                <h1>Growing Guide: {{ crop_name }}</h1>
-                <div class="crop-meta">
-                    <span class="crop-type">{{ crop_type }}</span>
-                    <div class="match-score">
-                        <div class="score-bar">
-                            <div class="score-fill" style="width: {{ match_percentage }}%"></div>
-                        </div>
-                        <span>{{ match_percentage }}% Match</span>
-                    </div>
-                </div>
-            </div>
-            <div class="yield-profit-summary">
-                <div class="summary-item">
-                    <i class="fas fa-seedling"></i>
-                    <div>
-                        <h3>Expected Yield</h3>
-                        <p>{{ expected_yield }} per hectare</p>
-                    </div>
-                </div>
-                <div class="summary-item">
-                    <i class="fas fa-coins"></i>
-                    <div>
-                        <h3>Estimated Profit</h3>
-                        <p>₹{{ estimated_profit }} per hectare</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+<body class="dashboard-body">
+	<div class="growing-guide-container">
+		<!-- Back Button -->
+		<a href="{{ url_for('crop_suggestion') }}" class="back-button">
+			<i class="fas fa-arrow-left"></i>
+			Back to Suggestions
+		</a>
+		
+		<!-- Crop Overview Section -->
+		<div class="crop-overview-card">
+			<div class="crop-header">
+				<h1>Growing Guide: {{ crop_name }}</h1>
+				<div class="crop-meta">
+					<span class="crop-type">{{ crop_type }}</span>
+					<div class="match-score">
+						<div class="score-bar">
+							<div class="score-fill" style="width: {{ match_percentage }}%"></div>
+						</div>
+						<span>{{ match_percentage }}% Match</span>
+					</div>
+				</div>
+			</div>
+			<div class="yield-profit-summary">
+				<div class="summary-item">
+					<i class="fas fa-seedling"></i>
+					<div>
+						<h3>Expected Yield</h3>
+						<p>{{ expected_yield }} per hectare</p>
+					</div>
+				</div>
+				<div class="summary-item">
+					<i class="fas fa-coins"></i>
+					<div>
+						<h3>Estimated Profit</h3>
+						<p>₹{{ estimated_profit }} per hectare</p>
+					</div>
+				</div>
+			</div>
+		</div>
 
-        <!-- Growing Steps -->
-        <div class="growing-steps">
-            <!-- Step 1: Land Preparation -->
-            <div class="step-card">
-                <div class="step-header">
-                    <div class="step-number">1</div>
-                    <h2>Land Preparation</h2>
-                </div>
-                <div class="step-content">
-                    <div class="instruction-list">
-                        {% for step in land_preparation %}
-                        <div class="instruction-item">
-                            <i class="fas fa-check-circle"></i>
-                            <p>{{ step }}</p>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="soil-test-results">
-                        <h3>Recommended Soil Parameters</h3>
-                        <div class="soil-parameters">
-                            <div class="parameter">
-                                <span>pH</span>
-                                <strong>{{ soil_ph }}</strong>
-                            </div>
-                            <div class="parameter">
-                                <span>N</span>
-                                <strong>{{ soil_n }}%</strong>
-                            </div>
-                            <div class="parameter">
-                                <span>P</span>
-                                <strong>{{ soil_p }}%</strong>
-                            </div>
-                            <div class="parameter">
-                                <span>K</span>
-                                <strong>{{ soil_k }}%</strong>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+		<!-- Growing Steps -->
+		<div class="growing-steps">
+			<!-- Step 1: Land Preparation -->
+			<div class="step-card">
+				<div class="step-header">
+					<div class="step-number">1</div>
+					<h2>Land Preparation</h2>
+				</div>
+				<div class="step-content">
+					<div class="instruction-list">
+						{% for step in land_preparation %}
+						<div class="instruction-item">
+							<i class="fas fa-check-circle"></i>
+							<p>{{ step }}</p>
+						</div>
+						{% endfor %}
+					</div>
+					<div class="soil-test-results">
+						<h3>Recommended Soil Parameters</h3>
+						<div class="soil-parameters">
+							<div class="parameter">
+								<span>pH</span>
+								<strong>{{ soil_ph }}</strong>
+							</div>
+							<div class="parameter">
+								<span>N</span>
+								<strong>{{ soil_n }}%</strong>
+							</div>
+							<div class="parameter">
+								<span>P</span>
+								<strong>{{ soil_p }}%</strong>
+							</div>
+							<div class="parameter">
+								<span>K</span>
+								<strong>{{ soil_k }}%</strong>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 
-            <!-- Step 2: Seed Selection -->
-            <div class="step-card">
-                <div class="step-header">
-                    <div class="step-number">2</div>
-                    <h2>Seed Selection & Sowing</h2>
-                </div>
-                <div class="step-content">
-                    <div class="seed-varieties">
-                        <h3>Recommended Varieties</h3>
-                        <div class="variety-list">
-                            {% for variety in seed_varieties %}
-                            <div class="variety-item">
-                                <strong>{{ variety.name }}</strong>
-                                <p>{{ variety.description }}</p>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    <div class="sowing-details">
-                        <div class="detail-item">
-                            <i class="fas fa-weight-hanging"></i>
-                            <div>
-                                <h4>Seed Rate</h4>
-                                <p>{{ seed_rate }} kg/hectare</p>
-                            </div>
-                        </div>
-                        <div class="detail-item">
-                            <i class="fas fa-calendar-alt"></i>
-                            <div>
-                                <h4>Sowing Season</h4>
-                                <p>{{ sowing_season }}</p>
-                            </div>
-                        </div>
-                        <div class="detail-item">
-                            <i class="fas fa-tools"></i>
-                            <div>
-                                <h4>Sowing Method</h4>
-                                <p>{{ sowing_method }}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+			<!-- Step 2: Seed Selection -->
+			<div class="step-card">
+				<div class="step-header">
+					<div class="step-number">2</div>
+					<h2>Seed Selection & Sowing</h2>
+				</div>
+				<div class="step-content">
+					<div class="seed-varieties">
+						<h3>Recommended Varieties</h3>
+						<div class="variety-list">
+							{% for variety in seed_varieties %}
+							<div class="variety-item">
+								<strong>{{ variety.name }}</strong>
+								<p>{{ variety.description }}</p>
+							</div>
+							{% endfor %}
+						</div>
+					</div>
+					<div class="sowing-details">
+						<div class="detail-item">
+							<i class="fas fa-weight-hanging"></i>
+							<div>
+								<h4>Seed Rate</h4>
+								<p>{{ seed_rate }} kg/hectare</p>
+							</div>
+						</div>
+						<div class="detail-item">
+							<i class="fas fa-calendar-alt"></i>
+							<div>
+								<h4>Sowing Season</h4>
+								<p>{{ sowing_season }}</p>
+							</div>
+						</div>
+						<div class="detail-item">
+							<i class="fas fa-tools"></i>
+							<div>
+								<h4>Sowing Method</h4>
+								<p>{{ sowing_method }}</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 
-            <!-- Additional Steps 3-6 -->
-            {% for step in growing_steps[2:] %}
-            <div class="step-card">
-                <div class="step-header">
-                    <div class="step-number">{{ loop.index + 2 }}</div>
-                    <h2>{{ step.title }}</h2>
-                </div>
-                <div class="step-content">
-                    {{ step.content | safe }}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+			<!-- Additional Steps 3-6 -->
+			{% for step in growing_steps[2:] %}
+			<div class="step-card">
+				<div class="step-header">
+					<div class="step-number">{{ loop.index + 2 }}</div>
+					<h2>{{ step.title }}</h2>
+				</div>
+				<div class="step-content">
+					{{ step.content | safe }}
+				</div>
+			</div>
+			{% endfor %}
+		</div>
 
-        <!-- Interactive Tools Section -->
-        <div class="interactive-tools">
-            <div class="tool-card timeline">
-                <h3><i class="fas fa-calendar-week"></i> Task Timeline</h3>
-                <div class="timeline-container" id="taskTimeline"></div>
-            </div>
+		<!-- Interactive Tools Section -->
+		<div class="interactive-tools">
+			<div class="tool-card timeline">
+				<h3><i class="fas fa-calendar-week"></i> Task Timeline</h3>
+				<form id="tlForm" class="tl-form">
+					<input id="tlName" type="text" placeholder="Task (e.g., Weeding)" required>
+					<input id="tlDate" type="date" required>
+					<button class="btn-sm" type="submit"><i class="fas fa-plus"></i> Add</button>
+				</form>
+				<div id="taskTimeline" class="tl-list"></div>
+			</div>
 
-            <div class="tool-card calculator">
-                <h3><i class="fas fa-calculator"></i> Cost Estimator</h3>
-                <div class="calculator-container" id="costCalculator"></div>
-            </div>
+			<div class="tool-card calculator">
+				<h3><i class="fas fa-calculator"></i> Cost Estimator</h3>
+				<div class="calc-grid" id="costCalculator">
+					<input id="areaHa" type="number" min="0" step="0.1" value="1" placeholder="Area (hectares)">
+					<input id="cSeed" type="number" min="0" step="0.01" value="0" placeholder="Seed (₹/ha)">
+					<input id="cFert" type="number" min="0" step="0.01" value="0" placeholder="Fertilizer (₹/ha)">
+					<input id="cLabor" type="number" min="0" step="0.01" value="0" placeholder="Labor (₹/ha)">
+					<input id="cIrr" type="number" min="0" step="0.01" value="0" placeholder="Irrigation (₹/ha)">
+					<input id="cOther" type="number" min="0" step="0.01" value="0" placeholder="Other (₹/ha)">
+					<input id="yieldQ" type="number" min="0" step="0.1" value="50" placeholder="Expected Yield (q/ha)">
+					<input id="priceQ" type="number" min="0" step="0.1" value="2500" placeholder="Market Price (₹/q)">
+				</div>
+				<div class="calc-summary">
+					<div class="calc-card"><strong>Total Cost:</strong><div id="outCost">₹0</div></div>
+					<div class="calc-card"><strong>Revenue:</strong><div id="outRev">₹0</div></div>
+					<div class="calc-card"><strong>Profit:</strong><div id="outProfit">₹0</div></div>
+					<div class="calc-card"><strong>Cost/ha:</strong><div id="outCostHa">₹0</div></div>
+				</div>
+			</div>
 
-            <div class="tool-card weather">
-                <h3><i class="fas fa-cloud-sun"></i> Weather Alerts</h3>
-                <div class="weather-container" id="weatherAlerts"></div>
-            </div>
-        </div>
+			<div class="tool-card weather" id="weatherCard" data-provider="weatherapi" data-api-key="22f4bcbb814b4ffc914175512252610">
+				<h3><i class="fas fa-cloud-sun"></i> Weather Alerts</h3>
+				<div id="weatherAlerts" class="wx-list"></div>
+				<div class="pill" id="wxStatus">Detecting location…</div>
+			</div>
 
-        <!-- Start Monitoring Button -->
-        <div class="monitoring-section">
-            <button class="start-monitoring-btn" onclick="startMonitoring()">
-                <i class="fas fa-chart-line"></i>
-                Start Monitoring Your Crop
-            </button>
-        </div>
-    </div>
+			<!-- Harvest Planner -->
+			<div class="tool-card harvest-planner">
+				<h3><i class="fas fa-wheat-awn"></i> Harvest Planner</h3>
+				<form id="harvestForm" class="hp-form">
+					<div class="hp-grid">
+						<div class="hp-field">
+							<label for="hpCropName">Crop</label>
+							<input id="hpCropName" type="text" value="{{ crop_name }}" readonly>
+						</div>
+						<div class="hp-field">
+							<label for="sowingDate">Sowing Date</label>
+							<input id="sowingDate" type="date" required>
+						</div>
+						<div class="hp-field">
+							<label for="cropDuration">Growth Duration (days)</label>
+							<input id="cropDuration" type="number" min="1" value="{{ growth_duration or 90 }}" required>
+						</div>
+					</div>
+					<button class="start-monitoring-btn" type="submit">
+						<i class="fas fa-calendar-check"></i> Generate Harvest Plan
+					</button>
+				</form>
 
-    <script src="{{ url_for('static', filename='js/growing-guide.js') }}"></script>
-    <script>
+				<div id="harvestResult" class="hp-result-card" style="display:none;">
+					<div class="hp-row"><span>Crop:</span><strong id="hpOutCrop"></strong></div>
+					<div class="hp-row"><span>Sowing Date:</span><strong id="hpOutSowing"></strong></div>
+					<div class="hp-row"><span>Expected Harvest:</span><strong id="hpOutHarvest"></strong></div>
+					<div class="hp-row"><span>Days Remaining:</span><strong id="hpOutRemaining"></strong></div>
+					<div class="hp-progress">
+						<div id="hpProgressFill" class="hp-progress-fill"></div>
+					</div>
+					<div class="hp-progress-text"><span id="hpProgressText"></span></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Start Monitoring Button -->
+		<div class="monitoring-section">
+			<button class="start-monitoring-btn" onclick="startMonitoring()">
+				<i class="fas fa-chart-line"></i>
+				Start Monitoring Your Crop
+			</button>
+		</div>
+	</div>
+
+	<script src="{{ url_for('static', filename='js/growing-guide.js') }}"></script>
+	<script>
     function goBack() {
         // Use history state if available, otherwise redirect
         if (document.referrer.includes('/crop-suggestion')) {
@@ -183,6 +470,248 @@
             window.location.href = '/crop-suggestion';
         }
     }
-    </script>
+
+	document.addEventListener('DOMContentLoaded', function () {
+		const form = document.getElementById('harvestForm');
+		if (!form) return;
+
+		const msDay = 24 * 60 * 60 * 1000;
+		const fmt = (d) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+		form.addEventListener('submit', function (e) {
+			e.preventDefault();
+
+			const crop = document.getElementById('hpCropName').value || 'Crop';
+			const sowingVal = document.getElementById('sowingDate').value;
+			const duration = Math.max(1, parseInt(document.getElementById('cropDuration').value || '90', 10));
+
+			if (!sowingVal || isNaN(duration)) return;
+
+			const sowing = new Date(sowingVal + 'T00:00:00');
+			const harvest = new Date(sowing.getTime() + duration * msDay);
+
+			const today = new Date();
+			today.setHours(0,0,0,0);
+
+			const remaining = Math.max(0, Math.ceil((harvest - today) / msDay));
+			const elapsed = Math.min(duration, Math.max(0, duration - remaining));
+			const pct = Math.round((elapsed / duration) * 100);
+
+			document.getElementById('hpOutCrop').textContent = crop;
+			document.getElementById('hpOutSowing').textContent = fmt(sowing);
+			document.getElementById('hpOutHarvest').textContent = fmt(harvest);
+			document.getElementById('hpOutRemaining').textContent = remaining + ' days';
+
+			const fill = document.getElementById('hpProgressFill');
+			fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+			document.getElementById('hpProgressText').textContent = `${elapsed}/${duration} days (${pct}%)`;
+
+			document.getElementById('harvestResult').style.display = 'block';
+		});
+
+		// Auto-set Growth Duration by crop name (only if still default/empty)
+		const CROP_DURATION_DAYS = {
+			rice: 120,
+			wheat: 140,
+			maize: 110,
+			corn: 110,
+			cotton: 170,
+			sugarcane: 330,
+			banana: 270,
+			soybean: 100,
+			groundnut: 120,
+			mustard: 110,
+			potato: 100,
+			tomato: 100,
+			onion: 110,
+			chili: 120,
+			sunflower: 100,
+			barley: 120,
+			millet: 90,
+			sorghum: 100,
+			pigeonpea: 180,
+			chickpea: 120
+		};
+
+		const durInput = document.getElementById('cropDuration');
+		const cropInput = document.getElementById('hpCropName');
+
+		if (durInput) {
+			// Mark when the user edits the duration so we don't override
+			durInput.addEventListener('input', () => { durInput.dataset.userSet = '1'; });
+
+			const cropNorm = (cropInput?.value || '').toLowerCase();
+			// Try exact key match first, then substring match (e.g., "rice (basmati)")
+			let key = Object.keys(CROP_DURATION_DAYS).find(k => cropNorm === k)
+				   || Object.keys(CROP_DURATION_DAYS).find(k => cropNorm.includes(k));
+			const autoVal = key ? CROP_DURATION_DAYS[key] : null;
+
+			if (autoVal) {
+				const currentVal = parseInt(durInput.value, 10);
+				if (!durInput.dataset.userSet && (!currentVal || currentVal === 90)) {
+					durInput.value = autoVal;
+				}
+			}
+		}
+
+		/* ===== Task Timeline ===== */
+		const CROP_KEY = '{{ crop_name|e }}' || 'crop';
+		const TL_KEY = 'hp_tl_' + CROP_KEY;
+		const tlForm = document.getElementById('tlForm');
+		const tlList = document.getElementById('taskTimeline');
+
+		function loadTasks(){ try { return JSON.parse(localStorage.getItem(TL_KEY) || '[]'); } catch { return []; } }
+		function saveTasks(arr){ localStorage.setItem(TL_KEY, JSON.stringify(arr)); }
+		function renderTasks(){
+			const items = loadTasks().sort((a,b)=>a.date.localeCompare(b.date));
+			tlList.innerHTML = items.map((t,i)=>`
+				<div class="tl-item ${t.done?'done':''}">
+					<div><strong>${t.name}</strong> <span class="pill">${t.date}</span></div>
+					<div class="tl-actions">
+						<button type="button" class="btn-sm" data-act="toggle" data-i="${i}" title="Toggle done">
+							<i class="fas ${t.done?'fa-rotate-left':'fa-check'}"></i>
+						</button>
+						<button type="button" class="btn-sm" style="background:#e11d48" data-act="del" data-i="${i}" title="Delete">
+							<i class="fas fa-trash"></i>
+						</button>
+					</div>
+				</div>`).join('');
+		}
+		tlForm?.addEventListener('submit', e=>{
+			e.preventDefault();
+			const name = document.getElementById('tlName').value.trim();
+			const date = document.getElementById('tlDate').value;
+			if(!name || !date) return;
+			const arr = loadTasks(); arr.push({name, date, done:false}); saveTasks(arr);
+			tlForm.reset(); renderTasks();
+		});
+		tlList?.addEventListener('click', e=>{
+			const btn = e.target.closest('button'); if(!btn) return;
+			const i = +btn.dataset.i; const arr = loadTasks();
+			if(btn.dataset.act==='toggle'){ arr[i].done = !arr[i].done; }
+			if(btn.dataset.act==='del'){ arr.splice(i,1); }
+			saveTasks(arr); renderTasks();
+		});
+		renderTasks();
+
+		/* ===== Cost Estimator ===== */
+		const CE_KEY = 'hp_ce_' + CROP_KEY;
+		const ids = ['areaHa','cSeed','cFert','cLabor','cIrr','cOther','yieldQ','priceQ'];
+		const els = Object.fromEntries(ids.map(id=>[id, document.getElementById(id)]));
+		function loadCE(){ try { const v = JSON.parse(localStorage.getItem(CE_KEY)||'{}'); for (const k of ids){ if(v[k]!=null && els[k]) els[k].value = v[k]; } } catch{} }
+		function saveCE(){ const v = {}; for(const k of ids){ v[k]=+els[k].value||0; } localStorage.setItem(CE_KEY, JSON.stringify(v)); }
+		function ru(n){ return '₹' + (Math.round(n).toLocaleString('en-IN')); }
+		function calc(){
+			const area=+els.areaHa.value||0;
+			const perHa = (+els.cSeed.value||0)+(+els.cFert.value||0)+(+els.cLabor.value||0)+(+els.cIrr.value||0)+(+els.cOther.value||0);
+			const cost = perHa*area;
+			const revenue = area*(+els.yieldQ.value||0)*(+els.priceQ.value||0);
+			const profit = revenue - cost;
+			document.getElementById('outCost').textContent = ru(cost);
+			document.getElementById('outRev').textContent = ru(revenue);
+			document.getElementById('outProfit').textContent = ru(profit);
+			document.getElementById('outCostHa').textContent = ru(perHa);
+			saveCE();
+		}
+		ids.forEach(id=>els[id]?.addEventListener('input', calc));
+		loadCE(); calc();
+
+		/* ===== Weather Alerts (Open‑Meteo by default; OpenWeather if API provided) ===== */
+		const wxCard   = document.getElementById('weatherCard');
+		const wxList   = document.getElementById('weatherAlerts');
+		const wxStatus = document.getElementById('wxStatus');
+		const provider = (wxCard?.dataset.provider || 'open-meteo').toLowerCase();
+		// Read API key from data attribute, then meta (OpenWeather or WeatherAPI)
+		const apiKey = (wxCard?.dataset.apiKey || '').trim()
+			|| (document.querySelector('meta[name="openweather-key"]')?.content || '').trim()
+			|| (document.querySelector('meta[name="weatherapi-key"]')?.content || '').trim();
+
+		function renderWeather(daily){
+			const { time, temperature_2m_max:maxT, temperature_2m_min:minT, precipitation_sum:prec } = daily;
+			wxList.innerHTML = time.slice(0,5).map((d,i)=>{
+				const alert = (prec[i]>10) || (maxT[i]>40) || (minT[i]<8);
+				return `<div class="wx-item">
+					<div><strong>${new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</strong>
+					<div class="pill">${minT[i]}°C / ${maxT[i]}°C</div></div>
+					<div>${prec[i]} mm ${alert?'<span class="wx-alert">Alert</span>':''}</div>
+				</div>`;
+			}).join('');
+			wxStatus.textContent = 'Forecast loaded';
+		}
+
+		function fetchWX_OpenMeteo(lat,lon){
+			wxStatus.textContent = 'Loading forecast…';
+			fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`)
+				.then(r=>r.json()).then(j=>renderWeather(j.daily))
+				.catch(()=>{ wxStatus.textContent='Weather service unavailable'; });
+		}
+
+		function fetchWX_OpenWeather(lat,lon){
+			if(!apiKey){ fetchWX_OpenMeteo(lat,lon); return; }
+			wxStatus.textContent = 'Loading forecast…';
+			/* One Call daily forecast (metric). Falls back to Open‑Meteo on error. */
+			fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=current,minutely,hourly,alerts&units=metric&appid=${apiKey}`)
+				.then(r=>r.json())
+				.then(j=>{
+					if(!j.daily) throw new Error('no daily');
+					const time=[], tmax=[], tmin=[], prec=[];
+					j.daily.slice(0,5).forEach(d=>{
+						time.push(new Date(d.dt*1000).toISOString().slice(0,10));
+						tmax.push(Math.round(d.temp.max));
+						tmin.push(Math.round(d.temp.min));
+						prec.push(Math.round((d.rain||0)));
+					});
+					renderWeather({
+						time,
+						temperature_2m_max:tmax,
+						temperature_2m_min:tmin,
+						precipitation_sum:prec
+					});
+				})
+				.catch(()=>fetchWX_OpenMeteo(lat,lon));
+		}
+
+		// NEW: WeatherAPI (weatherapi.com) daily forecast -> normalized to renderWeather
+		function fetchWX_WeatherAPI(lat, lon){
+			if(!apiKey){ wxStatus.textContent = 'Weather API key missing'; return; }
+			wxStatus.textContent = 'Loading forecast…';
+			fetch(`https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${lat},${lon}&days=5&aqi=no&alerts=yes`)
+				.then(r => r.json())
+				.then(j => {
+					const days = j?.forecast?.forecastday || [];
+					if(!days.length) throw new Error('no forecast');
+					const time = [], tmax = [], tmin = [], prec = [];
+					days.forEach(d => {
+						time.push(d.date);
+						tmax.push(Math.round(d.day?.maxtemp_c ?? 0));
+						tmin.push(Math.round(d.day?.mintemp_c ?? 0));
+						prec.push(Math.round(d.day?.totalprecip_mm ?? 0));
+					});
+					renderWeather({
+						time,
+						temperature_2m_max: tmax,
+						temperature_2m_min: tmin,
+						precipitation_sum: prec
+					});
+				})
+				.catch(() => { wxStatus.textContent = 'Weather service unavailable'; });
+		}
+
+		function fetchWX(lat,lon){
+			if(provider==='openweather') return fetchWX_OpenWeather(lat,lon);
+			if(provider==='weatherapi')  return fetchWX_WeatherAPI(lat,lon);
+			return fetchWX_OpenMeteo(lat,lon);
+		}
+
+		if(navigator.geolocation){
+			navigator.geolocation.getCurrentPosition(
+				pos=>fetchWX(pos.coords.latitude,pos.coords.longitude),
+				()=>fetchWX(28.6139,77.2090) // Fallback: New Delhi
+			);
+		}else{
+			fetchWX(28.6139,77.2090);
+		}
+	});
+	</script>
 </body>
 </html>
