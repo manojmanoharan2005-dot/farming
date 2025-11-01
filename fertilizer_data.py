@@ -9,7 +9,15 @@ class FertilizerDataset:
         self.dataset = self._load_dataset()
         self.fertilizer_database = self._create_fertilizer_database()
         self.crop_nutrient_mapping = self._create_crop_nutrient_mapping()
-    
+
+        # New: model-related attributes
+        self.model = None
+        self.crop_encoder = None
+        self.simple_centroids = None
+
+        # Train model (if dataset available)
+        self._train_model()
+
     def _load_dataset(self) -> pd.DataFrame:
         """Load fertilizer recommendation dataset from CSV"""
         try:
@@ -143,18 +151,142 @@ class FertilizerDataset:
     
     def _create_crop_nutrient_mapping(self) -> Dict[str, Dict]:
         """Create crop-specific nutrient requirements based on dataset analysis"""
+        # Keys are normalized (lowercase, no spaces/underscores) to match form values
         return {
             'rice': {'n_req': 75, 'p_req': 45, 'k_req': 50, 'ideal_ph': 6.5, 'season': 'Kharif'},
             'wheat': {'n_req': 60, 'p_req': 40, 'k_req': 40, 'ideal_ph': 6.8, 'season': 'Rabi'},
             'maize': {'n_req': 58, 'p_req': 50, 'k_req': 55, 'ideal_ph': 6.2, 'season': 'Kharif'},
-            'mung bean': {'n_req': 55, 'p_req': 35, 'k_req': 45, 'ideal_ph': 7.0, 'season': 'Kharif'},
+            'mungbean': {'n_req': 55, 'p_req': 35, 'k_req': 45, 'ideal_ph': 7.0, 'season': 'Kharif'},
             'tea': {'n_req': 68, 'p_req': 38, 'k_req': 52, 'ideal_ph': 4.8, 'season': 'Year round'},
             'millet': {'n_req': 52, 'p_req': 30, 'k_req': 48, 'ideal_ph': 6.5, 'season': 'Kharif'},
             'lentil': {'n_req': 54, 'p_req': 42, 'k_req': 50, 'ideal_ph': 6.8, 'season': 'Rabi'},
             'jute': {'n_req': 70, 'p_req': 48, 'k_req': 58, 'ideal_ph': 6.5, 'season': 'Kharif'},
             'coffee': {'n_req': 65, 'p_req': 45, 'k_req': 55, 'ideal_ph': 6.8, 'season': 'Year round'},
+            # Additional crops added (normalized keys)
+            'cotton': {'n_req': 68, 'p_req': 40, 'k_req': 60, 'ideal_ph': 6.5, 'season': 'Kharif'},
+            'sugarcane': {'n_req': 120, 'p_req': 60, 'k_req': 150, 'ideal_ph': 6.0, 'season': 'Year round'},
+            'soybean': {'n_req': 50, 'p_req': 35, 'k_req': 45, 'ideal_ph': 6.2, 'season': 'Kharif'},
+            'groundnut': {'n_req': 40, 'p_req': 30, 'k_req': 50, 'ideal_ph': 6.0, 'season': 'Kharif'},
+            'potato': {'n_req': 90, 'p_req': 60, 'k_req': 120, 'ideal_ph': 5.5, 'season': 'Rabi'},
+            'tomato': {'n_req': 80, 'p_req': 60, 'k_req': 90, 'ideal_ph': 6.0, 'season': 'Year round'},
+            'onion': {'n_req': 70, 'p_req': 50, 'k_req': 80, 'ideal_ph': 6.5, 'season': 'Rabi'},
+            'sunflower': {'n_req': 60, 'p_req': 45, 'k_req': 70, 'ideal_ph': 6.5, 'season': 'Kharif'},
+            'barley': {'n_req': 55, 'p_req': 40, 'k_req': 45, 'ideal_ph': 6.5, 'season': 'Rabi'},
+            'sorghum': {'n_req': 60, 'p_req': 35, 'k_req': 55, 'ideal_ph': 6.3, 'season': 'Kharif'},
+            'vegetables': {'n_req': 70, 'p_req': 60, 'k_req': 80, 'ideal_ph': 6.0, 'season': 'Year round'}
         }
     
+    def _train_model(self):
+        """Train an ML model to predict fertilizer from dataset features.
+        Uses RandomForestClassifier if sklearn available, otherwise builds simple centroids."""
+        if self.dataset.empty:
+            return
+
+        # Prepare features
+        df = self.dataset.copy()
+        # Normalize crop names for encoding
+        try:
+            df['crop_norm'] = df['Crop'].str.lower().str.replace(' ', '').str.replace('_', '')
+        except Exception:
+            df['crop_norm'] = df['Crop'].astype(str).str.lower()
+
+        # Required numeric columns may have different names; ensure they exist
+        for col in ['Temperature', 'Moisture', 'Nitrogen', 'Phosphorous', 'Potassium', 'PH']:
+            if col not in df.columns:
+                df[col] = 0.0
+
+        try:
+            # Try to use sklearn
+            from sklearn.ensemble import RandomForestClassifier
+            from sklearn.preprocessing import LabelEncoder
+
+            self.crop_encoder = LabelEncoder()
+            crop_vals = df['crop_norm'].fillna('unknown').astype(str).values
+            df['crop_enc'] = self.crop_encoder.fit_transform(crop_vals)
+
+            feature_cols = ['Temperature', 'Moisture', 'Nitrogen', 'Phosphorous', 'Potassium', 'PH', 'crop_enc']
+            X = df[feature_cols].fillna(0).values
+            y = df['Fertilizer'].fillna('General Purpose Fertilizer').astype(str).values
+
+            # Train a small RandomForest
+            clf = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+            clf.fit(X, y)
+            self.model = {
+                'clf': clf,
+                'features': feature_cols
+            }
+        except Exception:
+            # Fallback: compute centroids (mean feature vector) per fertilizer
+            feature_cols = ['Temperature', 'Moisture', 'Nitrogen', 'Phosphorous', 'Potassium', 'PH']
+            centroids: Dict[str, np.ndarray] = {}
+            groups = df.groupby('Fertilizer')
+            for fname, g in groups:
+                vals = g[feature_cols].fillna(0).values
+                if len(vals):
+                    centroids[fname] = np.nanmean(vals, axis=0)
+            self.simple_centroids = {
+                'features': feature_cols,
+                'centroids': centroids
+            }
+
+    def _predict_fertilizers(self, temp: float, moist: float, nitrogen: float, phosphorus: float, potassium: float, crop: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """Return top predicted fertilizers with a confidence/probability score."""
+        # Ensure moisture is normalized to fraction like dataset
+        if moist is None:
+            moist = 0.0
+        else:
+            try:
+                if moist > 1:
+                    moist = max(0.0, min(1.0, moist / 100.0))
+            except Exception:
+                pass
+
+        # Build feature vector
+        try:
+            crop_norm = crop.lower().replace(' ', '').replace('_', '')
+        except Exception:
+            crop_norm = str(crop).lower()
+
+        if self.model is not None:
+            clf = self.model['clf']
+            features = self.model['features']
+            # Build X in same order
+            crop_enc = 0
+            if self.crop_encoder is not None:
+                try:
+                    crop_enc = int(self.crop_encoder.transform([crop_norm])[0])
+                except Exception:
+                    # unseen -> map to most frequent or 0
+                    crop_enc = 0
+            x = np.array([temp, moist, nitrogen, phosphorus, potassium, 0.0, crop_enc], dtype=float)
+            # Ensure length matches
+            if x.shape[0] != len(features):
+                x = x[:len(features)]
+            try:
+                probs = clf.predict_proba([x])[0]
+                classes = clf.classes_
+                preds = sorted(zip(classes, probs), key=lambda kv: kv[1], reverse=True)[:top_k]
+                return [{'name': p[0], 'prob': float(p[1])} for p in preds]
+            except Exception:
+                return []
+        elif self.simple_centroids is not None:
+            # centroid distance scoring
+            feat_names = self.simple_centroids['features']
+            x = np.array([temp, moist, nitrogen, phosphorus, potassium], dtype=float)
+            scores = []
+            for fname, centroid in self.simple_centroids['centroids'].items():
+                if centroid.shape[0] != x.shape[0]:
+                    continue
+                # Euclidean distance -> convert to similarity
+                dist = np.linalg.norm(x - centroid)
+                score = 1.0 / (1.0 + dist)  # higher is better
+                scores.append((fname, score))
+            preds = sorted(scores, key=lambda kv: kv[1], reverse=True)[:top_k]
+            total = sum(s for _, s in preds) or 1.0
+            return [{'name': p[0], 'prob': float(p[1] / total)} for p in preds]
+        else:
+            return []
+
     def get_fertilizer_recommendations(self, nitrogen: str, phosphorus: str, potassium: str, 
                                     crop: str, temperature: str, humidity: str, moisture: str) -> List[Dict[str, Any]]:
         """Get AI-powered fertilizer recommendations using the actual dataset"""
@@ -166,24 +298,63 @@ class FertilizerDataset:
             temp = float(temperature)
             humid = float(humidity)
             soil_moisture = float(moisture)
-            
+
+            # Normalize soil moisture: dataset and internal logic expect fraction (0-1),
+            # while the form provides percent (20-100). Convert percent -> fraction.
+            if soil_moisture > 1:
+                soil_moisture = max(0.0, min(1.0, soil_moisture / 100.0))
+
             if self.dataset.empty:
                 return self._get_fallback_recommendations(crop.lower())
             
             # Normalize crop name
             crop_normalized = crop.lower().replace(' ', '').replace('_', '')
             
-            # Find similar conditions in the dataset
+            # Find similar conditions in the dataset (pass normalized moisture)
             similar_conditions = self._find_similar_conditions_advanced(
                 temp, humid, soil_moisture, current_n, current_p, current_k, crop_normalized
             )
             
             if similar_conditions.empty:
+                # try model predictions even if similar_conditions empty
+                model_preds = self._predict_fertilizers(temp, soil_moisture, current_n, current_p, current_k, crop_normalized, top_k=5)
+                if model_preds:
+                    # convert model_preds into recommendations using fertilizer_database
+                    recs = []
+                    for mp in model_preds:
+                        fname = mp['name']
+                        if fname in self.fertilizer_database:
+                            fi = self.fertilizer_database[fname]
+                            app_rate = self._calculate_optimal_application_rate(fi,
+                                max(0, self.crop_nutrient_mapping.get(crop_normalized, {}).get('n_req',60)-current_n), 
+                                max(0, self.crop_nutrient_mapping.get(crop_normalized, {}).get('p_req',40)-current_p),
+                                max(0, self.crop_nutrient_mapping.get(crop_normalized, {}).get('k_req',45)-current_k),
+                                crop_normalized)
+                            recs.append({
+                                'name': fi['full_name'],
+                                'type': fi['type'],
+                                'suitability': int(min(95, mp['prob'] * 100 + 10)),
+                                'application_rate': f"{app_rate:.1f} kg/acre",
+                                'cost': int(app_rate * fi['cost_per_kg']),
+                                'timing': 'Model suggested',
+                                'yield_increase': fi['yield_increase'],
+                                'application_method': fi['application_method'],
+                                'frequency': fi['frequency'],
+                                'best_time': fi['best_time']
+                            })
+                    return recs[:5]
                 return self._get_fallback_recommendations(crop_normalized)
             
             # Get fertilizer recommendations from dataset
             fertilizer_counts = similar_conditions['Fertilizer'].value_counts()
             top_fertilizers = fertilizer_counts.head(5).index.tolist()
+
+            # Integrate ML model predictions to correct/boost top_fertilizers
+            model_preds = self._predict_fertilizers(temp, soil_moisture, current_n, current_p, current_k, crop_normalized, top_k=5)
+            # Prepend model predictions if not already in list
+            for mp in model_preds:
+                if mp['name'] not in top_fertilizers:
+                    top_fertilizers.insert(0, mp['name'])
             
             # Get crop nutrient requirements
             crop_req = self.crop_nutrient_mapping.get(crop_normalized, {
@@ -201,8 +372,10 @@ class FertilizerDataset:
                 if fertilizer_name in self.fertilizer_database:
                     fert_info = self.fertilizer_database[fertilizer_name]
                     
-                    # Calculate suitability based on dataset frequency and nutrient match
-                    frequency_score = (fertilizer_counts[fertilizer_name] / len(similar_conditions)) * 40
+                    # Use safe frequency lookup (may be zero for model-only suggestions)
+                    freq_count = fertilizer_counts.get(fertilizer_name, 0)
+                    frequency_score = (freq_count / len(similar_conditions)) * 40 if len(similar_conditions) > 0 else 0
+
                     nutrient_match_score = self._calculate_nutrient_match(
                         fert_info, n_deficit, p_deficit, k_deficit
                     )
@@ -264,8 +437,13 @@ class FertilizerDataset:
         if self.dataset.empty:
             return pd.DataFrame()
         
-        # Filter by crop first (if crop exists in dataset)
-        crop_data = self.dataset[self.dataset['Crop'].str.lower().str.contains(crop, na=False)]
+        # Normalize dataset crop names when searching so normalized input values match dataset entries
+        try:
+            crop_col_normalized = self.dataset['Crop'].str.lower().str.replace(' ', '').str.replace('_', '')
+        except Exception:
+            crop_col_normalized = self.dataset['Crop'].str.lower()
+        
+        crop_data = self.dataset[crop_col_normalized.str.contains(crop, na=False)]
         
         if crop_data.empty:
             # If crop not found, use all data
@@ -318,6 +496,15 @@ class FertilizerDataset:
     def _calculate_environmental_suitability(self, temp: float, humid: float, 
                                           moisture: float) -> float:
         """Calculate environmental suitability score"""
+        # Accept moisture either as fraction (0-1) or percent (20-100); normalize
+        try:
+            if moisture is None:
+                moisture = 0.0
+            elif moisture > 1:
+                moisture = max(0.0, min(1.0, moisture / 100.0))
+        except Exception:
+            pass
+
         score = 25  # Base environmental score
         
         # Temperature adjustments
@@ -379,16 +566,28 @@ class FertilizerDataset:
     def _get_optimal_timing_from_dataset(self, similar_conditions: pd.DataFrame, 
                                        crop: str, temp: float) -> str:
         """Get optimal timing based on dataset and conditions"""
+        # Use normalized keys here as well
         crop_seasons = {
             'rice': 'Kharif season (June-October)',
             'wheat': 'Rabi season (November-April)',
             'maize': 'Kharif season (June-October)',
-            'mung bean': 'Kharif season (June-September)',
+            'mungbean': 'Kharif season (June-September)',
             'tea': 'Year-round application',
             'millet': 'Kharif season (June-September)',
             'lentil': 'Rabi season (October-March)',
             'jute': 'Kharif season (April-July)',
-            'coffee': 'Post-monsoon (October-December)'
+            'coffee': 'Post-monsoon (October-December)',
+            'cotton': 'Kharif (peak fertilizer at vegetative stage)',
+            'sugarcane': 'Split applications across season',
+            'soybean': 'Kharif (pre-sowing and early vegetative)',
+            'groundnut': 'Kharif (at sowing and pod development)',
+            'potato': 'Rabi (basal and hilling stages)',
+            'tomato': 'Transplant and flowering stages',
+            'onion': 'Bulb development stages',
+            'sunflower': 'Pre-flowering and flowering',
+            'barley': 'Rabi (at sowing and tillering)',
+            'sorghum': 'Kharif (split during growth)',
+            'vegetables': 'Season appropriate (split applications)'
         }
         
         base_timing = crop_seasons.get(crop, 'Season appropriate')

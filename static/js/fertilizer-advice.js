@@ -1,13 +1,13 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Add form animations
-    const formSections = document.querySelectorAll('.form-section');
+    // Add form animations (match actual template class names)
+    const formSections = document.querySelectorAll('.fertilizer-form-section');
     formSections.forEach((section, index) => {
         section.style.animationDelay = `${index * 0.1}s`;
         section.classList.add('animate-slide-in');
     });
 
-    // Add recommendation card animations
-    const recommendationCards = document.querySelectorAll('.crop-recommendation-card');
+    // Add recommendation card animations (match actual template class names)
+    const recommendationCards = document.querySelectorAll('.fertilizer-recommendation-card');
     recommendationCards.forEach((card, index) => {
         card.style.animationDelay = `${index * 0.2}s`;
         card.classList.add('animate-scale-in');
@@ -21,20 +21,31 @@ document.addEventListener('DOMContentLoaded', function() {
         dateElement.textContent = today.toLocaleDateString('en-US', options);
     }
 
-    // Form validation
-    const form = document.querySelector('.suggestion-form');
+    // Form validation (match actual form class)
+    const form = document.querySelector('.fertilizer-form');
     if (form) {
         form.addEventListener('submit', function(e) {
             const inputs = form.querySelectorAll('input[required], select[required]');
             let isValid = true;
 
             inputs.forEach(input => {
-                if (!input.value.trim()) {
-                    input.classList.add('invalid');
-                    isValid = false;
+                // For numeric inputs, allow 0 as valid but ensure not empty
+                if (input.type === 'number') {
+                    if (input.value === '' || input.value === null) {
+                        input.classList.add('invalid');
+                        isValid = false;
+                    } else {
+                        input.classList.remove('invalid');
+                        input.classList.add('valid');
+                    }
                 } else {
-                    input.classList.remove('invalid');
-                    input.classList.add('valid');
+                    if (!input.value.trim()) {
+                        input.classList.add('invalid');
+                        isValid = false;
+                    } else {
+                        input.classList.remove('invalid');
+                        input.classList.add('valid');
+                    }
                 }
             });
 
