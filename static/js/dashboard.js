@@ -66,9 +66,12 @@ function updateWeather() {
     fetch('/api/weather')
         .then(response => response.json())
         .then(data => {
-            document.getElementById('temperature').textContent = `${data.temperature}°C`;
-            document.getElementById('humidity').textContent = `${data.humidity}%`;
-            document.getElementById('rain-chance').textContent = `${data.rain_chance}%`;
+            const tempEl = document.getElementById('temperature');
+            if (tempEl) tempEl.textContent = `${data.temperature}°C`;
+            const humEl = document.getElementById('humidity');
+            if (humEl) humEl.textContent = `${data.humidity}%`;
+            const rainEl = document.getElementById('rain-chance');
+            if (rainEl) rainEl.textContent = `${data.rain_chance}%`;
         })
         .catch(error => console.error('Weather update failed:', error));
 }
@@ -103,8 +106,6 @@ function initializeSidebarNav() {
     
     navItems.forEach(item => {
         item.addEventListener('click', function(e) {
-            e.preventDefault();
-            
             // Remove active class from all items
             navItems.forEach(nav => nav.classList.remove('active'));
             
@@ -113,11 +114,16 @@ function initializeSidebarNav() {
             
             // Get section name
             const section = this.dataset.section;
+            const href = this.getAttribute('href');
             
-            // Show notification for sections other than dashboard
-            if (section && section !== 'dashboard') {
-                showNotification(`${section.replace('-', ' ').toUpperCase()} section coming soon!`, 'info');
+            // If link is a placeholder (no href or href="#"), prevent navigation and show notification
+            if (!href || href === '#') {
+                e.preventDefault();
+                if (section && section !== 'dashboard') {
+                    showNotification(`${section.replace('-', ' ').toUpperCase()} section coming soon!`, 'info');
+                }
             }
+            // Otherwise let the browser navigate to the real route (do not preventDefault)
         });
     });
 }

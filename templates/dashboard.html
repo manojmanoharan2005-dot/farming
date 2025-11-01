@@ -44,21 +44,21 @@
             </div>
             
             <nav class="sidebar-nav">
-                <a href="{{ url_for('dashboard') }}" class="nav-item active">
+                <a href="{{ url_for('dashboard') }}" class="nav-item active" data-section="dashboard">
                     <i class="fas fa-tachometer-alt"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="{{ url_for('crop_suggestion') }}" class="nav-item">
+                <a href="{{ url_for('crop_suggestion') }}" class="nav-item" data-section="crop-suggestion">
                     <i class="fas fa-seedling"></i>
                     <span>Crop Suggestion</span>
                 </a>
-                <a href="{{ url_for('fertilizer_advice') }}" class="nav-item">
+                <a href="{{ url_for('fertilizer_advice') }}" class="nav-item" data-section="fertilizer-advice">
                     <i class="fas fa-vial"></i>
                     <span>Fertilizer Advice</span>
                 </a>
             </nav>
         </div>
-
+ 
         <!-- Main Content -->
         <div class="dashboard-content">
             <!-- Top Header -->
@@ -92,182 +92,8 @@
                 </div>
             </div>
 
-            <!-- Stats Cards -->
-            <div class="stats-grid">
-                <div class="stat-card green">
-                    <div class="stat-content">
-                        <div class="stat-label">Farm Size</div>
-                        <div class="stat-value">5.2 hectares</div>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-map"></i>
-                    </div>
-                </div>
-                
-                <div class="stat-card blue">
-                    <div class="stat-content">
-                        <div class="stat-label">Active Crops</div>
-                        <div class="stat-value">3 Types</div>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-seedling"></i>
-                    </div>
-                </div>
-                
-                <div class="stat-card orange">
-                    <div class="stat-content">
-                        <div class="stat-label">This Month</div>
-                        <div class="stat-value">₹60K</div>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-coins"></i>
-                    </div>
-                </div>
-                
-                <div class="stat-card purple">
-                    <div class="stat-content">
-                        <div class="stat-label">Health Score</div>
-                        <div class="stat-value">92%</div>
-                    </div>
-                    <div class="stat-icon">
-                        <i class="fas fa-heart"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Dashboard Cards Grid -->
-            <div class="cards-grid">
-                <!-- Weather Card -->
-                <div class="dashboard-card weather-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <i class="fas fa-sun weather-icon"></i>
-                            Today's Weather
-                        </div>
-                        <div class="weather-emoji">☀️</div>
-                    </div>
-                    <div class="card-content">
-                        <div class="temperature">{{ weather.temperature }}°C</div>
-                        <div class="weather-status">Partly Cloudy</div>
-                        <div class="weather-details">
-                            <div class="weather-item">
-                                <span class="label">Humidity</span>
-                                <span class="value">{{ weather.humidity }}%</span>
-                            </div>
-                            <div class="weather-item">
-                                <span class="label">Rain Chance</span>
-                                <span class="value">{{ weather.rain_chance }}%</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Recommended Crop Card -->
-                <div class="dashboard-card crop-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <i class="fas fa-seedling"></i>
-                            Recommended Crop
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="crop-name">Rice (Basmati)</div>
-                        <div class="crop-badges">
-                            <span class="badge success">95% Match</span>
-                            <span class="badge profit">High Profit</span>
-                        </div>
-                        <div class="crop-description">
-                            Perfect for your soil type and current season. Expected yield: 45-50 quintals/hectare.
-                        </div>
-                        <button class="btn-success">View Details</button>
-                    </div>
-                </div>
-
-                <!-- Fertilizer Alert Card -->
-                <div class="dashboard-card fertilizer-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <i class="fas fa-vial"></i>
-                            Fertilizer Alert
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="fertilizer-type">NPK (10:26:26)</div>
-                        <div class="fertilizer-amount">25 kg/acre</div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: 75%;"></div>
-                        </div>
-                        <div class="progress-text">75% Application Complete</div>
-                        <div class="next-application">Next application due in 5 days</div>
-                        <button class="btn-orange">Schedule Application</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-</body>
-</html>
-                    </div>
-                    <div class="calendar-content">
-                        <div class="calendar-item sowing">
-                            <div class="calendar-activity">Sowing Season</div>
-                            <div class="calendar-crops">Rice, Cotton, Sugarcane</div>
-                        </div>
-                        <div class="calendar-item harvesting">
-                            <div class="calendar-activity">Harvesting Season</div>
-                            <div class="calendar-crops">Wheat, Mustard</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Profit Tracker Chart -->
-                <div class="dashboard-card chart-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-chart-bar"></i> Profit & Expense Tracker</h3>
-                    </div>
-                    <div class="chart-content">
-                        <canvas id="profitChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Recent Activity Card -->
-                <div class="dashboard-card activity-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-clock"></i> Recent Activity</h3>
-                    </div>
-                    <div class="activity-content">
-                        <div class="activity-item">
-                            <div class="activity-icon green">
-                                <i class="fas fa-seedling"></i>
-                            </div>
-                            <div class="activity-details">
-                                <div class="activity-title">Rice planting completed</div>
-                                <div class="activity-time">2 hours ago</div>
-                            </div>
-                        </div>
-                        <div class="activity-item">
-                            <div class="activity-icon blue">
-                                <i class="fas fa-cloud-rain"></i>
-                            </div>
-                            <div class="activity-details">
-                                <div class="activity-title">Weather alert received</div>
-                                <div class="activity-time">1 day ago</div>
-                            </div>
-                        </div>
-                        <div class="activity-item">
-                            <div class="activity-icon orange">
-                                <i class="fas fa-coins"></i>
-                            </div>
-                            <div class="activity-details">
-                                <div class="activity-title">Market price updated</div>
-                                <div class="activity-time">2 days ago</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- Stats cards removed as requested -->
+            <!-- (Farm Size / Active Crops / This Month / Health Score cards removed) -->
         </div>
     </div>
 
