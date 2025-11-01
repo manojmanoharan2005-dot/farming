@@ -8,12 +8,15 @@ from dotenv import load_dotenv
 import random
 from crop_data import crop_dataset
 from fertilizer_data import fertilizer_dataset
+from add_dashboard_fertilizer import dashboard_fertilizer_bp, DB_PATH, ensure_table_exists
+import sqlite3
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'farming-assistant-secret-key-2024')
+app.register_blueprint(dashboard_fertilizer_bp)
 
 # ------------------ MongoDB Configuration ------------------ #
 try:
@@ -189,11 +192,42 @@ def dashboard():
         crops = list(crops_collection.find({}).limit(3))
         market_prices = [{'crop': c['name'].split(' ')[0], 'price': f"₹{c['price']}/quintal"} for c in crops]
 
+        # Ensure table exists and load SQLite-saved fertilizers
+        ensure_table_exists()
+        sqlite_fertilizers = []
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, fertilizer_name, cost, yield_increase, application_time, date_added, status, selected_for, suitability
+                FROM dashboard_fertilizers
+                ORDER BY id DESC
+            """)
+            rows = cur.fetchall()
+            for r in rows:
+                sqlite_fertilizers.append({
+                    'id': r[0],
+                    'name': r[1],
+                    'cost': r[2],
+                    'yield_increase': r[3],
+                    'application_time': r[4],
+                    'date_added': r[5],
+                    'status': r[6],
+                    'selected_for': r[7],
+                    'suitability': r[8]
+                })
+        finally:
+            try:
+                conn.close()
+            except:
+                pass
+
         return render_template('dashboard.html',
                                user_name=session.get('user_name'),
                                weather=weather_data,
                                crop_rec=crop_recommendation,
-                               prices=market_prices)
+                               prices=market_prices,
+                               sqlite_fertilizers=sqlite_fertilizers)
 
     except Exception as e:
         flash(f'Dashboard error: {str(e)}', 'error')
@@ -240,6 +274,28 @@ def api_market_prices():
         return jsonify(updated_prices)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/delete_dashboard_fertilizer', methods=['POST'])
+def delete_dashboard_fertilizer():
+    try:
+        payload = request.get_json() or {}
+        fid = payload.get('id')
+        if not fid:
+            return jsonify({'status': 'error', 'error': 'Missing id'}), 400
+
+        ensure_table_exists()
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM dashboard_fertilizers WHERE id = ?", (fid,))
+            conn.commit()
+            if cur.rowcount == 0:
+                return jsonify({'status': 'error', 'error': 'Not found'}), 404
+            return jsonify({'status': 'success'})
+        finally:
+            conn.close()
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 # -------- Profile -------- #
 @app.route('/profile')

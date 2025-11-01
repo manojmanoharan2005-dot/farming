@@ -92,8 +92,55 @@
                 </div>
             </div>
 
-            <!-- Stats cards removed as requested -->
-            <!-- (Farm Size / Active Crops / This Month / Health Score cards removed) -->
+            <!-- Saved Fertilizers Section -->
+            {% if sqlite_fertilizers %}
+            <section class="saved-fertilizers-section">
+                <h3 class="section-title">Saved Fertilizers</h3>
+
+                <div class="saved-fertilizers-container">
+                    {% for f in sqlite_fertilizers %}
+                    <article class="saved-fertilizer-card" id="saved-fertilizer-{{ f.id }}">
+                        <header class="card-top">
+                            <div class="card-info">
+                                <h4 class="fert-name">{{ f.name }}</h4>
+                                <div class="fert-meta">
+                                    <span class="status">{{ f.status }}</span>
+                                    <time class="date-added" datetime="{{ f.date_added }}">{{ f.date_added.split('T')[0] }}</time>
+                                </div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-delete delete-fertilizer-btn" data-id="{{ f.id }}" aria-label="Delete saved fertilizer">
+                                    ×
+                                </button>
+                            </div>
+                        </header>
+
+                        <div class="card-body">
+                            <div class="card-row">
+                                <span class="label">Cost</span>
+                                <span class="value">₹{{ "{:,.2f}".format(f.cost) }}</span>
+                            </div>
+                            <div class="card-row">
+                                <span class="label">Yield Increase</span>
+                                <span class="value">{{ f.yield_increase }}%</span>
+                            </div>
+                            <div class="card-row">
+                                <span class="label">Application Time</span>
+                                <span class="value">{{ f.application_time }}</span>
+                            </div>
+                            <div class="card-actions-row">
+                                <button class="btn btn-primary open-recommendation" type="button">View</button>
+                                <a class="btn btn-outline" href="#" onclick="return false;">Buy</a>
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- Load small script to handle delete actions -->
+            <script src="{{ url_for('static', filename='js/dashboard-fertilizers.js') }}"></script>
+            {% endif %}
         </div>
     </div>
 

@@ -208,7 +208,18 @@
                             </div>
                             
                             <div class="fertilizer-crop-details">
+                                <!-- New: Recommended For (crop name + suitability %) -->
                                 <div class="fertilizer-detail-grid">
+                                    <div class="fertilizer-detail-item">
+                                        <i class="fas fa-seedling text-teal"></i>
+                                        <div>
+                                            <span class="fertilizer-detail-label">Recommended For</span>
+                                            <span class="fertilizer-detail-value fertilizer-selected-for">
+                                                {{ crop_name or fertilizer.selected_for or '—' }} {% if fertilizer.suitability %}({{ fertilizer.suitability }}%) {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+
                                     <div class="fertilizer-detail-item">
                                         <i class="fas fa-weight-hanging text-green"></i>
                                         <div>
@@ -229,7 +240,13 @@
                                         <i class="fas fa-clock text-blue"></i>
                                         <div>
                                             <span class="fertilizer-detail-label">Application Time</span>
-                                            <span class="fertilizer-detail-value">{{ fertilizer.timing }}</span>
+                                            <span class="fertilizer-detail-value">
+                                                {{ fertilizer.timing }}
+                                                <!-- small crop label next to the value -->
+                                                <small class="fertilizer-detail-crop fertilizer-detail-crop-time">
+                                                    {% if crop_name %}For {{ crop_name }}{% endif %}
+                                                </small>
+                                            </span>
                                         </div>
                                     </div>
                                     
@@ -237,7 +254,13 @@
                                         <i class="fas fa-chart-line text-purple"></i>
                                         <div>
                                             <span class="fertilizer-detail-label">Expected Yield Increase</span>
-                                            <span class="fertilizer-detail-value">{{ fertilizer.yield_increase }}%</span>
+                                            <span class="fertilizer-detail-value">
+                                                {{ fertilizer.yield_increase }}%
+                                                <!-- small crop label next to the value -->
+                                                <small class="fertilizer-detail-crop fertilizer-detail-crop-yield">
+                                                    {% if crop_name %}For {{ crop_name }}{% endif %}
+                                                </small>
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -265,7 +288,30 @@
                                         <i class="fas fa-info-circle"></i>
                                         Learn More
                                     </button>
-                                    <button class="fertilizer-btn-success">
+
+                                    <!-- Badge placeholder: will be filled by JS when saved -->
+                                    <span class="added-badge" style="display:none; margin-right:8px; font-weight:600; color:#0f5132; background:#d1fae5; padding:6px 8px; border-radius:6px;"></span>
+
+                                    <!-- New "Add Me" button: adds fertilizer to dashboard (uses same data attrs) -->
+                                    <button type="button" class="fertilizer-btn-outline add-me-btn"
+                                            data-name="{{ fertilizer.name }}"
+                                            data-cost="{{ fertilizer.cost }}"
+                                            data-yield="{{ fertilizer.yield_increase }}"
+                                            data-time="{{ fertilizer.timing }}"
+                                            data-crop="{{ crop_name }}"
+                                            data-suitability="{{ fertilizer.suitability }}">
+                                        <i class="fas fa-plus-circle"></i>
+                                        Add Me
+                                    </button>
+
+                                    <!-- Existing Buy Now button -->
+                                    <button type="button" class="fertilizer-btn-success buy-now-btn"
+                                            data-name="{{ fertilizer.name }}"
+                                            data-cost="{{ fertilizer.cost }}"
+                                            data-yield="{{ fertilizer.yield_increase }}"
+                                            data-time="{{ fertilizer.timing }}"
+                                            data-crop="{{ crop_name }}"
+                                            data-suitability="{{ fertilizer.suitability }}">
                                         <i class="fas fa-shopping-cart"></i>
                                         Buy Now
                                     </button>
