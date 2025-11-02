@@ -712,6 +712,62 @@
 			fetchWX(28.6139,77.2090);
 		}
 	});
+
+	// NEW: global startMonitoring function (calls backend to save progress)
+	window.startMonitoring = function() {
+		try {
+			const crop = document.getElementById('hpCropName').value || 'Crop';
+			const sowingVal = document.getElementById('sowingDate').value;
+			const duration = Math.max(1, parseInt(document.getElementById('cropDuration').value || '90', 10));
+			if (!sowingVal) {
+				alert('Please select sowing date first.');
+				return;
+			}
+			const sowing = new Date(sowingVal + 'T00:00:00');
+			const msDay = 24 * 60 * 60 * 1000;
+			const harvest = new Date(sowing.getTime() + duration * msDay);
+
+			// Read timeline from localStorage (same key used in page)
+			const TL_KEY = 'hp_tl_' + (crop || 'crop');
+			let tasks = [];
+			try { tasks = JSON.parse(localStorage.getItem(TL_KEY) || '[]'); } catch(e){ tasks = []; }
+
+			// Normalize task dates to YYYY-MM-DD and ensure done flag
+			tasks = tasks.map(t => ({
+				name: t.name || t.task || 'Task',
+				date: (t.date || '').slice(0,10),
+				done: !!t.done
+			}));
+
+			// POST to backend
+			fetch('/save_progress', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					crop_name: crop,
+					start_date: sowing.toISOString().slice(0,10),
+					harvest_date: harvest.toISOString().slice(0,10),
+					task_timeline: tasks,
+					status: 'monitoring',
+					recommendation: ''
+				})
+			})
+			.then(r => r.json())
+			.then(j => {
+				if (j.status === 'success') {
+					alert('Monitoring started — progress saved.');
+					// Optionally redirect to dashboard to view monitoring list
+					window.location.href = '/dashboard';
+				} else {
+					alert('Failed to start monitoring: ' + (j.error || JSON.stringify(j)));
+				}
+			})
+			.catch(err => { alert('Network error: ' + err); });
+		} catch (e) {
+			console.error(e);
+			alert('Unable to start monitoring.');
+		}
+	};
 	</script>
 </body>
 </html>

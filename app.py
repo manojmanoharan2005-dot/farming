@@ -10,6 +10,7 @@ from crop_data import crop_dataset
 from fertilizer_data import fertilizer_dataset
 from add_dashboard_fertilizer import dashboard_fertilizer_bp, DB_PATH, ensure_table_exists
 import sqlite3
+import json
 
 # Load environment variables
 load_dotenv()
@@ -86,6 +87,30 @@ def init_db():
 
     except Exception as e:
         print(f"❌ Database initialization error: {e}")
+
+# New: Progress DB path
+PROGRESS_DB_PATH = os.path.join(os.path.dirname(__file__), 'progress.db')
+
+def ensure_progress_table():
+    """Ensure SQLite progress DB and table exist"""
+    try:
+        conn = sqlite3.connect(PROGRESS_DB_PATH)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS crop_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT,
+                crop_name TEXT,
+                start_date TEXT,
+                harvest_date TEXT,
+                task_timeline TEXT,
+                status TEXT,
+                recommendation TEXT
+            )
+        """)
+        conn.commit()
+    finally:
+        conn.close()
 
 # ------------------ Routes ------------------ #
 @app.route('/')
@@ -510,6 +535,174 @@ def fertilizer_advice():
                          recommendations=recommendations,
                          form_data=form_data,
                          crop_name=crop_name)
+
+@app.route('/save_progress', methods=['POST'])
+def save_progress():
+    if 'user_id' not in session:
+        return jsonify({'status':'error','error':'Not authenticated'}), 401
+    try:
+        payload = request.get_json() or {}
+        crop_name = payload.get('crop_name')
+        start_date = payload.get('start_date')
+        harvest_date = payload.get('harvest_date')
+        task_timeline = payload.get('task_timeline', [])
+        status = payload.get('status', 'monitoring')
+        recommendation = payload.get('recommendation', '')
+
+        if not crop_name or not start_date or not harvest_date:
+            return jsonify({'status':'error','error':'Missing required fields'}), 400
+
+        ensure_progress_table()
+        conn = sqlite3.connect(PROGRESS_DB_PATH)
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO crop_progress (user_id, crop_name, start_date, harvest_date, task_timeline, status, recommendation)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                session['user_id'],
+                crop_name,
+                start_date,
+                harvest_date,
+                json.dumps(task_timeline, default=str),
+                status,
+                recommendation
+            ))
+            conn.commit()
+            return jsonify({'status':'success', 'id': cur.lastrowid})
+        finally:
+            conn.close()
+    except Exception as e:
+        return jsonify({'status':'error','error': str(e)}), 500
+
+@app.route('/get_progress')
+def get_progress():
+    if 'user_id' not in session:
+        return jsonify([])  # return empty for anonymous
+    try:
+        ensure_progress_table()
+        conn = sqlite3.connect(PROGRESS_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM crop_progress WHERE user_id = ? ORDER BY id DESC", (session['user_id'],))
+            rows = cur.fetchall()
+            out = []
+            today = datetime.utcnow().date()
+            for r in rows:
+                tasks = []
+                try:
+                    tasks = json.loads(r['task_timeline'] or '[]')
+                except:
+                    tasks = []
+                # Normalize tasks: expect {'name':..,'date': 'YYYY-MM-DD', 'done': bool}
+                for t in tasks:
+                    if 'done' not in t:
+                        t['done'] = bool(t.get('done', False))
+
+                # Determine next task and recommendation
+                next_task = None
+                rec = ''
+                harvest_date = None
+                try:
+                    harvest_date = datetime.fromisoformat(r['harvest_date']).date()
+                except:
+                    try:
+                        harvest_date = datetime.strptime(r['harvest_date'], '%Y-%m-%d').date()
+                    except:
+                        harvest_date = None
+
+                # If any task date == today
+                today_tasks = [t for t in tasks if t.get('date') and datetime.fromisoformat(t['date']).date() == today]
+                if today_tasks:
+                    rec = f"Perform today's task: {today_tasks[0].get('name')}"
+                    next_task = today_tasks[0]
+                else:
+                    # upcoming tasks > today
+                    future = []
+                    for t in tasks:
+                        try:
+                            td = datetime.fromisoformat(t['date']).date()
+                            if td > today and not t.get('done'):
+                                future.append((td, t))
+                        except:
+                            continue
+                    if future:
+                        future.sort(key=lambda x: x[0])
+                        next_task = future[0][1]
+                        rec = f"Next upcoming task: {next_task.get('name')} on {future[0][0].isoformat()}"
+                    else:
+                        if harvest_date and today > harvest_date:
+                            rec = "Harvest completed — check final yield."
+                        else:
+                            # If started recently or no clear tasks
+                            try:
+                                start_date = datetime.fromisoformat(r['start_date']).date()
+                                if (today - start_date).days <= 3 or not tasks:
+                                    rec = "Land preparation ongoing."
+                                else:
+                                    rec = "Monitoring in progress."
+                            except:
+                                rec = "Monitoring in progress."
+
+                # progress percent
+                total_tasks = len(tasks) or 0
+                done_tasks = sum(1 for t in tasks if t.get('done'))
+                progress_percent = int((done_tasks / total_tasks) * 100) if total_tasks else 0
+
+                out.append({
+                    'id': r['id'],
+                    'crop_name': r['crop_name'],
+                    'start_date': r['start_date'],
+                    'harvest_date': r['harvest_date'],
+                    'tasks': tasks,
+                    'status': r['status'],
+                    'recommendation': rec,
+                    'next_task': next_task,
+                    'progress_percent': progress_percent
+                })
+            return jsonify(out)
+        finally:
+            conn.close()
+    except Exception as e:
+        return jsonify({'status':'error','error': str(e)}), 500
+
+@app.route('/mark_task_done', methods=['POST'])
+def mark_task_done():
+    if 'user_id' not in session:
+        return jsonify({'status':'error','error':'Not authenticated'}), 401
+    try:
+        payload = request.get_json() or {}
+        pid = payload.get('progress_id')
+        task_index = payload.get('task_index')
+        if pid is None or task_index is None:
+            return jsonify({'status':'error','error':'Missing progress_id or task_index'}), 400
+
+        ensure_progress_table()
+        conn = sqlite3.connect(PROGRESS_DB_PATH)
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT task_timeline FROM crop_progress WHERE id = ? AND user_id = ?", (pid, session['user_id']))
+            row = cur.fetchone()
+            if not row:
+                return jsonify({'status':'error','error':'Not found'}), 404
+            tasks = json.loads(row[0] or '[]')
+            if task_index < 0 or task_index >= len(tasks):
+                return jsonify({'status':'error','error':'Invalid task index'}), 400
+            tasks[task_index]['done'] = True
+            # Update status if all done
+            all_done = all(t.get('done') for t in tasks) if tasks else False
+            new_status = 'completed' if all_done else 'monitoring'
+            cur.execute("UPDATE crop_progress SET task_timeline = ?, status = ? WHERE id = ?", (json.dumps(tasks), new_status, pid))
+            conn.commit()
+            return jsonify({'status':'success','new_status': new_status})
+        finally:
+            conn.close()
+    except Exception as e:
+        return jsonify({'status':'error','error': str(e)}), 500
+
+# Ensure progress table on startup
+ensure_progress_table()
 
 # ------------------ Run App ------------------ #
 if __name__ == '__main__':
