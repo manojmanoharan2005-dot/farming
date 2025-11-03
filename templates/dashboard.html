@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Weather API key (embedded) -->
+    <meta name="weatherapi-key" content="22f4bcbb814b4ffc914175512252610">
+
+    <!-- Tools panel layout fixes -->
+    <style>
+        /* Ensure panel uses border-box and inner controls can shrink correctly */
+        #topToolsPanel { box-sizing: border-box; overflow: visible; }
+        #topToolsPanel .tt-wx-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        #topToolsPanel .tt-wx-row input { flex:1; min-width:0; padding:8px; border:1px solid #e6eef0; border-radius:6px; }
+        #topToolsPanel .tt-wx-row button { flex:0 0 auto; white-space:nowrap; padding:8px; border-radius:6px; }
+    </style>
 </head>
 <body class="dashboard-body">
     <!-- Flash Messages -->
@@ -68,16 +79,63 @@
                     <p>Monitor your farm's performance and get insights</p>
                 </div>
                 <div class="header-right">
-                    <div class="date-display">
+                    <!-- Tools button: placed to the LEFT of Today/date as requested -->
+                    <div class="top-tools-wrap" style="position:relative;margin-right:12px;display:inline-block;vertical-align:middle;">
+                        <button id="topToolsBtn" class="btn btn-outline" aria-expanded="false" aria-controls="topToolsPanel" title="Open Tools" style="padding:8px 10px;border-radius:8px;">
+                            <i class="fas fa-tools"></i> Tools
+                        </button>
+
+                        <!-- Floating panel (hidden by default) -->
+                        <div id="topToolsPanel" style="display:none;position:absolute;right:0;top:42px;width:320px;background:#fff;border-radius:8px;box-shadow:0 8px 24px rgba(2,6,23,0.15);z-index:999;padding:10px;">
+                            <div style="display:flex;gap:6px;margin-bottom:8px;">
+                                <button class="tt-tab active" data-tab="estimator" style="flex:1;padding:8px;border-radius:6px;border:1px solid #e6eef0;background:#f8fafb;font-weight:600;">Estimator</button>
+                                <button class="tt-tab" data-tab="weather" style="flex:1;padding:8px;border-radius:6px;border:1px solid #e6eef0;background:#fff;font-weight:600;">Weather</button>
+                            </div>
+
+                            <div id="ttEstimator" class="tt-panel" style="display:block;">
+                                <div style="display:grid;gap:8px;">
+                                    <label style="font-size:.85rem;color:#556">Area (hectares)</label>
+                                    <input id="ttArea" type="number" min="0" step="0.1" value="1" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
+                                    <label style="font-size:.85rem;color:#556">Seed rate (kg/ha)</label>
+                                    <input id="ttSeedRate" type="number" min="0" step="0.1" value="25" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
+                                    <label style="font-size:.85rem;color:#556">Seed price (₹/kg) — optional</label>
+                                    <input id="ttSeedPrice" type="number" min="0" step="0.01" placeholder="0.00" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
+                                    <div style="display:flex;gap:8px;margin-top:6px;">
+                                        <button id="ttCalcBtn" class="btn btn-primary" style="flex:1;padding:8px;border-radius:6px;">Calculate</button>
+                                        <button id="ttClearBtn" class="btn btn-outline" style="flex:1;padding:8px;border-radius:6px;">Clear</button>
+                                    </div>
+                                    <div id="ttEstimatorOut" style="margin-top:8px;background:#f8fafb;padding:8px;border-radius:6px;font-size:.95rem;"></div>
+                                </div>
+                            </div>
+
+                            <div id="ttWeather" class="tt-panel" style="display:none;">
+                                <div style="display:flex;flex-direction:column;gap:8px;">
++                                   <div class="tt-wx-row">
++                                       <input id="ttWxLocation" type="text" placeholder="City or 'lat,lon' (e.g., Delhi or 28.6139,77.2090)">
++                                       <button id="ttWxUseMyLoc" class="btn btn-outline">Use my location</button>
++                                   </div>
+                                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                                        <strong>Current</strong>
+                                        <button id="ttWxRefresh" class="btn btn-outline" style="padding:6px;border-radius:6px;">Refresh</button>
+                                    </div>
+                                    <div id="ttWxOut" style="background:#f8fafb;padding:8px;border-radius:6px;">
+                                        <div>Loading…</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="date-display" style="display:inline-block;vertical-align:middle;">
                         <span>Today</span>
-                        <span class="current-date">Loading...</span>
+                        <span class="current-date" style="margin-left:8px;">Loading...</span>
                     </div>
-                    <div class="user-profile-header">
-                        <a href="{{ url_for('logout') }}" class="logout-btn">
-                            <i class="fas fa-sign-out-alt"></i>
-                            Logout
-                        </a>
-                    </div>
+
+                    <!-- Logout button added to the right of the date (Tools -> Today -> Logout) -->
+                    <a href="{{ url_for('logout') }}" class="logout-btn" style="display:inline-flex;align-items:center;gap:8px;margin-left:12px;padding:8px 12px;border-radius:8px;background:#ef4444;color:#fff;font-weight:600;text-decoration:none;">
+                        <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                        Logout
+                    </a>
                 </div>
             </div>
 
@@ -219,6 +277,7 @@
 
     <script src="{{ url_for('static', filename='js/date-updater.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/top-tools.js') }}"></script>
 
     <!-- New: Crop progress frontend logic -->
     <script src="{{ url_for('static', filename='js/progress.js') }}"></script>
