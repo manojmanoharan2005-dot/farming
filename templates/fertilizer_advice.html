@@ -299,22 +299,15 @@
                                             data-yield="{{ fertilizer.yield_increase }}"
                                             data-time="{{ fertilizer.timing }}"
                                             data-crop="{{ crop_name }}"
-                                            data-suitability="{{ fertilizer.suitability }}">
+                                            data-suitability="{{ fertilizer.suitability }}"
+                                            data-description="{{ fertilizer.description | replace('\"','&quot;') if fertilizer.description else '' }}"
+                                            data-manual="{{ fertilizer.manual | replace('\"','&quot;') if fertilizer.manual else '' }}"
+                                            data-safety="{{ fertilizer.safety | replace('\"','&quot;') if fertilizer.safety else '' }}">
                                         <i class="fas fa-plus-circle"></i>
                                         Add Me
                                     </button>
 
-                                    <!-- Existing Buy Now button -->
-                                    <button type="button" class="fertilizer-btn-success buy-now-btn"
-                                            data-name="{{ fertilizer.name }}"
-                                            data-cost="{{ fertilizer.cost }}"
-                                            data-yield="{{ fertilizer.yield_increase }}"
-                                            data-time="{{ fertilizer.timing }}"
-                                            data-crop="{{ crop_name }}"
-                                            data-suitability="{{ fertilizer.suitability }}">
-                                        <i class="fas fa-shopping-cart"></i>
-                                        Buy Now
-                                    </button>
+                                    <!-- Buy Now button removed as requested -->
                                 </div>
                             </div>
                         </div>

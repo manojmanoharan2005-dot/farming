@@ -69,7 +69,11 @@ document.addEventListener('DOMContentLoaded', function() {
             application_time: btn.dataset.time || '',
             // new fields:
             selected_for: btn.dataset.crop || '',
-            suitability: parseFloat(btn.dataset.suitability) || null
+            suitability: parseFloat(btn.dataset.suitability) || null,
+            // description/manual/safety forwarded if present
+            description: btn.dataset.description || '',
+            manual: btn.dataset.manual || '',
+            safety: btn.dataset.safety || ''
         };
 
         // optimistic UI lock

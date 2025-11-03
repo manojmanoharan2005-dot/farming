@@ -97,9 +97,12 @@
             <section class="saved-fertilizers-section">
                 <h3 class="section-title">Saved Fertilizers</h3>
 
-                <div class="saved-fertilizers-container">
+                <div class="saved-fertilizers-container" data-use-fallback="true">
                     {% for f in sqlite_fertilizers %}
-                    <article class="saved-fertilizer-card" id="saved-fertilizer-{{ f.id }}">
+                    <article class="saved-fertilizer-card" id="saved-fertilizer-{{ f.id }}"
+                             data-description="{{ f.description or 'No description available for this fertilizer.' }}"
+                             data-manual="{{ f.manual or 'Manual steps not provided. Please follow label instructions and local agronomy guidance.' }}"
+                             data-safety="{{ f.safety or 'Wear protective gloves and eye protection. Avoid inhalation and follow label first-aid instructions.' }}">
                         <header class="card-top">
                             <div class="card-info">
                                 <h4 class="fert-name">{{ f.name }}</h4>
@@ -133,8 +136,11 @@
                                 <span class="value">{{ f.application_time }}</span>
                             </div>
                             <div class="card-actions-row">
+                                <!-- View button now opens modal with description, manual steps and safety features -->
                                 <button class="btn btn-primary open-recommendation" type="button">View</button>
-                                <a class="btn btn-outline" href="#" onclick="return false;">Buy</a>
+
+                                <!-- Buy button now opens maps search for fertilizer shops (JS will handle it) -->
+                                <button class="btn btn-outline buy-fertilizer" type="button" data-name="{{ f.name }}">Buy</button>
                             </div>
                         </div>
                     </article>
@@ -216,5 +222,56 @@
 
     <!-- New: Crop progress frontend logic -->
     <script src="{{ url_for('static', filename='js/progress.js') }}"></script>
+
+    <!-- Modal for fertilizer details -->
+    <div id="fertilizer-modal" class="modal" role="dialog" aria-hidden="true" style="display:none;">
+        <div class="modal-backdrop" style="position:fixed;inset:0;background:rgba(0,0,0,0.4);"></div>
+        <div class="modal-panel" role="document" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:8px;max-width:720px;width:90%;z-index:1001;padding:18px;box-shadow:0 10px 30px rgba(2,6,23,0.2);">
+            <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 id="fertilizer-modal-title" style="margin:0;font-size:1.1rem;">Fertilizer Details</h3>
+                <button id="fertilizer-modal-close" aria-label="Close modal" style="background:none;border:none;font-size:20px;cursor:pointer;">×</button>
+            </header>
+
+            <section id="fertilizer-modal-content" style="max-height:60vh;overflow:auto;">
+                <p id="fertilizer-modal-description" style="margin-bottom:6px;font-size:.98rem;color:#223;">
+                    <!-- description populated by JS -->
+                </p>
+
+                <!-- NEW: Source indicator so user knows where the text came from -->
+                <div id="fertilizer-modal-source" style="margin-bottom:10px;font-size:.85rem;color:#556; font-style:italic;">
+                    <!-- populated by JS: "Source: saved data" or "Source: built-in info" -->
+                </div>
+
+                <h4 style="margin:10px 0 6px;">Manual Steps</h4>
+                <ol id="fertilizer-modal-manual" style="margin:0 0 12px;padding-left:18px;color:#334;">
+                    <!-- manual steps populated by JS (plain text will be wrapped into li) -->
+                </ol>
+
+                <h4 style="margin:10px 0 6px;">Safety Features & Precautions</h4>
+                <ul id="fertilizer-modal-safety" style="margin:0 0 8px;padding-left:18px;color:#334;">
+                    <!-- safety items populated by JS (plain text split into li) -->
+                </ul>
+            </section>
+
+            <footer style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+                <button id="fertilizer-modal-open-maps" class="btn btn-outline" type="button">Find Shops</button>
+                <button id="fertilizer-modal-close-2" class="btn btn-primary" type="button">Close</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Minimal inline modal styles can be adjusted in css/style.css later -->
+    <style>
+        .modal{display:none;position:fixed;inset:0;z-index:1050}
+        .modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.5);}
+        .modal-panel{position:relative;background:#fff;border-radius:.5rem;box-shadow:0 4px 8px rgba(0,0,0,0.1);max-width:90%;margin:auto;top:10%;}
+        .modal-header,.modal-footer{padding:1rem;display:flex;justify-content:flex-end;gap:.5rem}
+        .modal-title{margin:0;font-size:1.25rem}
+        .modal-close{background:none;border:none;font-size:1.5rem;cursor:pointer}
+        .modal-body{padding:1rem;max-height:60vh;overflow:auto}
+        .btn{padding:.5rem 1rem;border-radius:.375rem;border:none;cursor:pointer}
+        .btn-primary{background:#007bff;color:#fff}
+        .btn-outline{background:#f8f9fa;color:#333}
+    </style>
 </body>
 </html>
