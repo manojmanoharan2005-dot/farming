@@ -9,6 +9,7 @@ import random
 from crop_data import crop_dataset
 from fertilizer_data import fertilizer_dataset
 from add_dashboard_fertilizer import dashboard_fertilizer_bp, DB_PATH, ensure_table_exists
+from crop_progress import progress_bp
 import sqlite3
 import json
 
@@ -18,6 +19,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'farming-assistant-secret-key-2024')
 app.register_blueprint(dashboard_fertilizer_bp)
+app.register_blueprint(progress_bp)
 
 # ------------------ MongoDB Configuration ------------------ #
 try:
@@ -217,17 +219,18 @@ def dashboard():
         crops = list(crops_collection.find({}).limit(3))
         market_prices = [{'crop': c['name'].split(' ')[0], 'price': f"₹{c['price']}/quintal"} for c in crops]
 
-        # Ensure table exists and load SQLite-saved fertilizers
+        # Ensure table exists and load SQLite-saved fertilizers for this user only
         ensure_table_exists()
         sqlite_fertilizers = []
         try:
             conn = sqlite3.connect(DB_PATH)
             cur = conn.cursor()
             cur.execute("""
-                SELECT id, fertilizer_name, cost, yield_increase, application_time, date_added, status, selected_for, suitability
+                SELECT id, fertilizer_name, cost, yield_increase, application_time, date_added, status, selected_for, suitability, user_id
                 FROM dashboard_fertilizers
+                WHERE user_id = ?
                 ORDER BY id DESC
-            """)
+            """, (session['user_id'],))
             rows = cur.fetchall()
             for r in rows:
                 sqlite_fertilizers.append({
@@ -239,7 +242,8 @@ def dashboard():
                     'date_added': r[5],
                     'status': r[6],
                     'selected_for': r[7],
-                    'suitability': r[8]
+                    'suitability': r[8],
+                    'user_id': r[9]
                 })
         finally:
             try:
@@ -247,12 +251,27 @@ def dashboard():
             except:
                 pass
 
+        # Load only the crops that belong to the logged-in user (MongoDB)
+        user_crops = []
+        try:
+            cursor = crops_collection.find({"user_id": session['user_id']})
+            for c in cursor:
+                user_crops.append({
+                    'id': str(c.get('_id')),
+                    'name': c.get('name'),
+                    'season': c.get('season'),
+                    'created_at': c.get('created_at')
+                })
+        except Exception as e:
+            print(f"Error loading user crops: {e}")
+
         return render_template('dashboard.html',
                                user_name=session.get('user_name'),
                                weather=weather_data,
                                crop_rec=crop_recommendation,
                                prices=market_prices,
-                               sqlite_fertilizers=sqlite_fertilizers)
+                               sqlite_fertilizers=sqlite_fertilizers,
+                               user_crops=user_crops)
 
     except Exception as e:
         flash(f'Dashboard error: {str(e)}', 'error')
@@ -300,6 +319,58 @@ def api_market_prices():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ---------------- Delete fertilizer (form redirect) ------------------
+@app.route('/delete_fertilizer/<int:fertilizer_id>', methods=['POST'])
+def delete_fertilizer(fertilizer_id):
+    # Delete only if the fertilizer belongs to this user
+    if 'user_id' not in session:
+        flash('Not authenticated', 'error')
+        return redirect(url_for('login'))
+
+    try:
+        ensure_table_exists()
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM dashboard_fertilizers WHERE id = ? AND user_id = ?", (fertilizer_id, session['user_id']))
+            conn.commit()
+            if cur.rowcount == 0:
+                flash('Fertilizer not found or not permitted to delete', 'error')
+            else:
+                flash('Fertilizer deleted', 'success')
+        finally:
+            conn.close()
+    except Exception as e:
+        flash(f'Error deleting fertilizer: {e}', 'error')
+
+    return redirect(url_for('dashboard'))
+
+# ---------------- Delete crop (form redirect) ------------------
+@app.route('/delete_crop/<crop_id>', methods=['POST'])
+def delete_crop(crop_id):
+    # Delete a MongoDB crop only if it belongs to the logged-in user
+    if 'user_id' not in session:
+        flash('Not authenticated', 'error')
+        return redirect(url_for('login'))
+
+    try:
+        try:
+            obj_id = ObjectId(crop_id)
+        except Exception:
+            flash('Invalid crop id', 'error')
+            return redirect(url_for('dashboard'))
+
+        res = crops_collection.delete_one({"_id": obj_id, "user_id": session['user_id']})
+        if res.deleted_count == 0:
+            flash('Crop not found or not permitted to delete', 'error')
+        else:
+            flash('Crop deleted', 'success')
+    except Exception as e:
+        flash(f'Error deleting crop: {e}', 'error')
+
+    return redirect(url_for('dashboard'))
+
+# ---------------- Tighten existing AJAX delete (keeps JSON behavior) ------------------
 @app.route('/delete_dashboard_fertilizer', methods=['POST'])
 def delete_dashboard_fertilizer():
     try:
@@ -308,14 +379,17 @@ def delete_dashboard_fertilizer():
         if not fid:
             return jsonify({'status': 'error', 'error': 'Missing id'}), 400
 
+        if 'user_id' not in session:
+            return jsonify({'status': 'error', 'error': 'Not authenticated'}), 401
+
         ensure_table_exists()
         conn = sqlite3.connect(DB_PATH)
         try:
             cur = conn.cursor()
-            cur.execute("DELETE FROM dashboard_fertilizers WHERE id = ?", (fid,))
+            cur.execute("DELETE FROM dashboard_fertilizers WHERE id = ? AND user_id = ?", (fid, session['user_id']))
             conn.commit()
             if cur.rowcount == 0:
-                return jsonify({'status': 'error', 'error': 'Not found'}), 404
+                return jsonify({'status': 'error', 'error': 'Not found or not permitted'}), 404
             return jsonify({'status': 'success'})
         finally:
             conn.close()

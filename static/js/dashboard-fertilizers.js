@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', function() {
     function handleDeleteClick(e) {
         const btn = e.currentTarget;
+
+        // If this button is inside a form (we now prefer form-based POST delete),
+        // do not run the AJAX delete handler to avoid double-submits.
+        if (btn.closest && btn.closest('form')) return;
+
         const id = btn.dataset.id;
         if (!id) return;
 

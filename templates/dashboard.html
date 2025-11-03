@@ -109,9 +109,13 @@
                                 </div>
                             </div>
                             <div class="card-actions">
-                                <button class="btn btn-delete delete-fertilizer-btn" data-id="{{ f.id }}" aria-label="Delete saved fertilizer">
-                                    ×
-                                </button>
+                                <!-- Form-based delete so server receives a POST and can redirect -->
+                                <form method="POST" action="{{ url_for('delete_fertilizer', fertilizer_id=f.id) }}" onsubmit="return confirm('Are you sure you want to delete this saved fertilizer?');" style="display:inline">
+                                    <button class="btn btn-delete" type="submit" aria-label="Delete saved fertilizer">×</button>
+                                </form>
+
+                                <!-- Keep the JS-aware delete button as fallback (AJAX) — dashboard-fertilizers.js will ignore buttons that are inside forms -->
+                                <button class="btn btn-delete delete-fertilizer-btn" data-id="{{ f.id }}" aria-label="Delete saved fertilizer (AJAX)" style="display:none">×</button>
                             </div>
                         </header>
 
@@ -137,6 +141,46 @@
                     {% endfor %}
                 </div>
             </section>
+            {% endif %}
+
+            <!-- Saved Crops Section (user-specific) -->
+            {% if user_crops %}
+            <section class="saved-crops-section">
+                <h3 class="section-title">Saved Crops</h3>
+                <div class="saved-fertilizers-container">
+                    {% for c in user_crops %}
+                    <article class="saved-fertilizer-card" id="saved-crop-{{ c.id }}">
+                        <header class="card-top">
+                            <div class="card-info">
+                                <h4 class="fert-name">{{ c.name }}</h4>
+                                <div class="fert-meta">
+                                    <span class="status">{{ c.season or '' }}</span>
+                                    <time class="date-added">{{ (c.created_at.split('T')[0] if c.created_at else '') }}</time>
+                                </div>
+                            </div>
+                            <div class="card-actions">
+                                <!-- Delete crop via POST (server will check ownership) -->
+                                <form method="POST" action="{{ url_for('delete_crop', crop_id=c.id) }}" onsubmit="return confirm('Are you sure you want to delete this crop?');" style="display:inline">
+                                    <button class="btn btn-delete" type="submit" aria-label="Delete saved crop">×</button>
+                                </form>
+                            </div>
+                        </header>
+
+                        <div class="card-body">
+                            <div class="card-row">
+                                <span class="label">Season</span>
+                                <span class="value">{{ c.season or '—' }}</span>
+                            </div>
+                            <div class="card-row">
+                                <span class="label">Name</span>
+                                <span class="value">{{ c.name }}</span>
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
 
             <!-- New: Crop Progress Section -->
             <section class="crop-progress-section">
@@ -164,7 +208,6 @@
 
             <!-- Load small script to handle delete actions -->
             <script src="{{ url_for('static', filename='js/dashboard-fertilizers.js') }}"></script>
-            {% endif %}
         </div>
     </div>
 

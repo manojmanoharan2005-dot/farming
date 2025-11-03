@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 import sqlite3
 import os
 from datetime import datetime
@@ -22,7 +22,8 @@ def ensure_table_exists():
                 date_added TEXT,
                 status TEXT DEFAULT 'Purchased',
                 selected_for TEXT,
-                suitability REAL
+                suitability REAL,
+                user_id TEXT
             )
         """)
         conn.commit()
@@ -45,12 +46,23 @@ def ensure_table_exists():
             except Exception:
                 pass
 
+        # Add user_id column if missing (to keep fertilizers user-specific)
+        if 'user_id' not in existing_cols:
+            try:
+                cur.execute("ALTER TABLE dashboard_fertilizers ADD COLUMN user_id TEXT")
+            except Exception:
+                pass
+
         conn.commit()
     finally:
         conn.close()
 
 @dashboard_fertilizer_bp.route('/add_dashboard_fertilizer', methods=['POST'])
 def add_dashboard_fertilizer():
+    # Require login: only logged-in users can save fertilizers
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'error': 'Not authenticated'}), 401
+
     data = request.get_json() or {}
     name = data.get('name', '').strip()
     cost = data.get('cost', 0)
@@ -68,11 +80,12 @@ def add_dashboard_fertilizer():
     conn = sqlite3.connect(DB_PATH)
     try:
         cur = conn.cursor()
+        # Save user_id so records are per-user
         cur.execute("""
             INSERT INTO dashboard_fertilizers
-            (fertilizer_name, cost, yield_increase, application_time, date_added, status, selected_for, suitability)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (name, cost, yield_increase, application_time, date_added, 'Purchased', selected_for, suitability))
+            (fertilizer_name, cost, yield_increase, application_time, date_added, status, selected_for, suitability, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, cost, yield_increase, application_time, date_added, 'Purchased', selected_for, suitability, session['user_id']))
         conn.commit()
         inserted_id = cur.lastrowid
 
@@ -81,6 +94,7 @@ def add_dashboard_fertilizer():
             'status': 'success',
             'id': inserted_id,
             'fertilizer': {
+                'id': inserted_id,
                 'fertilizer_name': name,
                 'cost': cost,
                 'yield_increase': yield_increase,
@@ -88,7 +102,8 @@ def add_dashboard_fertilizer():
                 'date_added': date_added,
                 'status': 'Purchased',
                 'selected_for': selected_for,
-                'suitability': suitability
+                'suitability': suitability,
+                'user_id': session['user_id']
             }
         })
     except Exception as e:
