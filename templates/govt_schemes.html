@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Government Schemes — Farming Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body{background:#f6faf6;color:#122;}
+        .schemes-page{max-width:980px;margin:28px auto;padding:20px}
+        .schemes-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+        .scheme-card{background:#fff;border-radius:10px;padding:14px;margin-bottom:10px;box-shadow:0 6px 18px rgba(15,23,42,0.04)}
+        .scheme-card h3{margin:0 0 6px;font-size:1rem}
+        .scheme-meta{font-size:.9rem;color:#556}
+        .back-link{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:#334}
+    </style>
+</head>
+<body>
+    <div class="schemes-page">
+        <div class="schemes-header">
+            <div>
+                <h1 style="margin:0;font-size:1.25rem">Government Schemes for Farmers</h1>
+                <div style="color:#6b7280;font-size:.95rem;margin-top:4px">Links and short descriptions</div>
+            </div>
+            <div>
+                <!-- ensure static page goes back to the dashboard route -->
+                <a href="{{ url_for('dashboard') }}" class="back-link">← Back</a>
+            </div>
+        </div>
+
+        <article class="scheme-card">
+            <h3>PM-Kisan (Pradhan Mantri Kisan Samman Nidhi)</h3>
+            <div class="scheme-meta">Income support to small and marginal farmers. Official: <a href="https://pmkisan.gov.in/" target="_blank" rel="noopener">pmkisan.gov.in</a></div>
+        </article>
+
+        <article class="scheme-card">
+            <h3>Pradhan Mantri Fasal Bima Yojana (PMFBY)</h3>
+            <div class="scheme-meta">Crop insurance to protect against yield losses. Official: <a href="https://pmfby.gov.in/" target="_blank" rel="noopener">pmfby.gov.in</a></div>
+        </article>
+
+        <article class="scheme-card">
+            <h3>National Agriculture Infrastructure Fund</h3>
+            <div class="scheme-meta">Financing for post-harvest infrastructure & warehousing. Official: <a href="https://agriinfra.dac.gov.in/" target="_blank" rel="noopener">agriinfra.dac.gov.in</a></div>
+        </article>
+
+        <article class="scheme-card">
+            <h3>Kisan Credit Card (KCC)</h3>
+            <div class="scheme-meta">Short-term credit to farmers for cultivation needs. Info: <a href="https://kisancreditcard.com/" target="_blank" rel="noopener">kisancreditcard.com</a></div>
+        </article>
+
+        <article class="scheme-card">
+            <h3>Soil Health Card</h3>
+            <div class="scheme-meta">Soil testing and nutrient recommendation program. Official info: <a href="https://soilhealth.dac.gov.in/" target="_blank" rel="noopener">soilhealth.dac.gov.in</a></div>
+        </article>
+
+        <article class="scheme-card">
+            <h3>Pradhan Mantri Krishi Sinchai Yojana (PMKSY)</h3>
+            <div class="scheme-meta">Improving farm irrigation coverage and water-use efficiency. Govt portal: <a href="https://pmksy.gov.in/" target="_blank" rel="noopener">pmksy.gov.in</a></div>
+        </article>
+
+        <div style="margin-top:16px;color:#6b7280;font-size:.9rem">
+            For a complete list visit <a href="https://www.india.gov.in/spotlight/schemes-farmers" target="_blank" rel="noopener">india.gov.in &raquo; Schemes for Farmers</a>.
+        </div>
+    </div>
+</body>
+</html>

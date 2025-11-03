@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Sidebar navigation
     initializeSidebarNav();
+
+    // Initialize Govt Schemes button/panel
+    initializeGovtSchemes();
 });
 
 function initializeProfitChart() {
@@ -125,6 +128,66 @@ function initializeSidebarNav() {
             }
             // Otherwise let the browser navigate to the real route (do not preventDefault)
         });
+    });
+}
+
+function initializeGovtSchemes() {
+    // prefer a dedicated toggle button so the main link can navigate normally
+    const linkBtn = document.getElementById('govtSchemesBtn');       // anchor that should navigate
+    const toggleBtn = document.getElementById('govtSchemesToggle'); // small toggle to open panel
+    const panel = document.getElementById('govtSchemesPanel');
+    const closeBtn = document.getElementById('govtSchemesClose');
+
+    // if no panel or no toggle/link available, bail out gracefully
+    if (!panel || (!linkBtn && !toggleBtn)) return;
+
+    // function to open/close panel
+    function openPanel() {
+        panel.style.display = 'block';
+        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+    }
+    function closePanel() {
+        panel.style.display = 'none';
+        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+    function togglePanel(e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        const isOpen = panel.style.display === 'block';
+        if (isOpen) closePanel(); else openPanel();
+    }
+
+    // Attach toggle behavior to the small toggle button if present.
+    // We intentionally do NOT intercept clicks on the main linkBtn so it navigates normally.
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', togglePanel);
+    } else if (linkBtn) {
+        // fallback: if no separate toggle exists, clicking the main control should open/close panel
+        linkBtn.addEventListener('click', function (e) {
+            // if the link has an href that points to our static page, allow navigation on plain click.
+            // If user holds ctrl/meta/shift or middle-click, navigation will happen normally.
+            // To provide panel access when fallback is used, open panel only on Alt+click
+            if (e.altKey) {
+                e.preventDefault();
+                togglePanel(e);
+            }
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function (e) { e.stopPropagation(); closePanel(); });
+    }
+
+    // Close panel when clicking outside
+    document.addEventListener('click', function (ev) {
+        const target = ev.target;
+        if (!panel.contains(target) && !(toggleBtn && toggleBtn.contains(target)) && !(linkBtn && linkBtn.contains(target)) && panel.style.display === 'block') {
+            closePanel();
+        }
+    });
+
+    // Allow Esc to close
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && panel.style.display === 'block') closePanel();
     });
 }
 

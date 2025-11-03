@@ -1,0 +1,98 @@
+:root{
+    --page-max-width:980px;
+    --card-bg:#ffffff;
+    --muted:#6b7280;
+    --accent:#10b981;
+    --text:#122;
+    --card-radius:10px;
+    --shadow:0 6px 18px rgba(15,23,42,0.04);
+}
+
+/* Page container */
+.schemes-page{
+    max-width: var(--page-max-width);
+    margin: 28px auto;
+    padding: 20px;
+    color: var(--text);
+}
+
+/* Header */
+.schemes-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:16px;
+    margin-bottom:16px;
+}
+.schemes-header h1{ margin:0; font-size:1.25rem; }
+.schemes-header .back-link{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    text-decoration:none;
+    color:var(--text);
+    padding:6px 10px;
+    border-radius:8px;
+    background:transparent;
+    transition:background .12s, color .12s;
+}
+.schemes-header .back-link:hover,
+.schemes-header .back-link:focus{
+    background:#f3f4f6;
+    outline:none;
+    color:var(--text);
+}
+
+/* Scheme cards */
+.scheme-card{
+    background:var(--card-bg);
+    border-radius:var(--card-radius);
+    padding:14px;
+    margin-bottom:12px;
+    box-shadow:var(--shadow);
+    transition:transform .12s, box-shadow .12s;
+}
+.scheme-card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 10px 26px rgba(15,23,42,0.08);
+}
+.scheme-card h3{ margin:0 0 6px; font-size:1rem; color:var(--text); }
+.scheme-meta{ font-size:.95rem; color:var(--muted); }
+
+/* Link styles inside cards */
+.scheme-card a {
+    color: var(--accent);
+    text-decoration: none;
+}
+.scheme-card a:hover,
+.scheme-card a:focus { text-decoration: underline; }
+
+/* Utilities */
+.schemes-page > .note {
+    margin-top:16px;
+    color:var(--muted);
+    font-size:.92rem;
+}
+
+/* Responsive: stack header on small screens */
+@media (max-width:640px){
+    .schemes-header{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:8px;
+    }
+    .schemes-page{ padding:14px; }
+}
+
+/* Accessibility: focus outlines for keyboard users */
+.scheme-card a:focus,
+.schemes-header .back-link:focus{
+    outline: 3px solid rgba(16,185,129,0.16);
+    outline-offset: 2px;
+}
+
+/* Make buttons inside page consistent with dashboard theme (light) */
+.btn, .back-link{
+    font-weight:600;
+    color: #0b0b0b;
+}

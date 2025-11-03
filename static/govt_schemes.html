@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Government Schemes — Farming Assistant</title>
+	<link rel="stylesheet" href="/static/css/style.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+	<!-- INLINE page CSS (green theme) -->
+	<style>
+		:root{
+			--page-max-width:980px;
+			--bg: #f0fdf4;           /* very light green */
+			--card-bg:#ffffff;
+			--muted:#4b5563;
+			--accent:#10b981;       /* primary green */
+			--accent-dark:#047857;
+			--text:#062c20;
+			--card-radius:12px;
+			--shadow:0 6px 20px rgba(4,7,5,0.06);
+		}
+
+		html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+		body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+
+		/* Page container */
+		.schemes-page{
+			max-width: var(--page-max-width);
+			margin: 28px auto;
+			padding: 20px;
+			color: var(--text);
+		}
+
+		/* Header */
+		.schemes-header{
+			display:flex;
+			justify-content:space-between;
+			align-items:center;
+			gap:16px;
+			margin-bottom:18px;
+		}
+		.schemes-header h1{ margin:0; font-size:1.25rem; color:var(--accent-dark); font-weight:700; }
+		.schemes-header .subtitle{ color:var(--muted); font-size:.95rem; margin-top:4px; }
+
+		.schemes-header .back-link{
+			display:inline-flex;
+			align-items:center;
+			gap:8px;
+			text-decoration:none;
+			color:var(--accent-dark);
+			padding:8px 12px;
+			border-radius:8px;
+			background:rgba(16,185,129,0.08);
+			border:1px solid rgba(16,185,129,0.12);
+			transition:background .12s, color .12s, transform .08s;
+			font-weight:600;
+		}
+		.schemes-header .back-link:hover,
+		.schemes-header .back-link:focus{
+			background:linear-gradient(90deg, rgba(16,185,129,0.12), rgba(4,120,87,0.06));
+			transform:translateY(-1px);
+			outline:none;
+			color:var(--accent-dark);
+		}
+
+		/* Scheme cards */
+		.scheme-card{
+			background:var(--card-bg);
+			border-radius:var(--card-radius);
+			padding:16px;
+			margin-bottom:14px;
+			box-shadow:var(--shadow);
+			transition:transform .12s, box-shadow .12s, border-left-color .12s;
+			border-left:4px solid rgba(16,185,129,0.08);
+		}
+		.scheme-card:hover{
+			transform:translateY(-4px);
+			box-shadow:0 14px 36px rgba(4,7,5,0.06);
+			border-left-color: var(--accent);
+		}
+		.scheme-card h3{ margin:0 0 6px; font-size:1rem; color:var(--accent-dark); }
+		.scheme-meta{ font-size:.95rem; color:var(--muted); }
+
+		/* Link styles inside cards */
+		.scheme-card a {
+			color: var(--accent);
+			text-decoration: none;
+			font-weight:600;
+		}
+		.scheme-card a:hover,
+		.scheme-card a:focus { text-decoration: underline; color:var(--accent-dark); }
+
+		/* Utilities */
+		.schemes-page > .note {
+			margin-top:16px;
+			color:var(--muted);
+			font-size:.92rem;
+		}
+
+		/* Responsive: stack header on small screens */
+		@media (max-width:640px){
+			.schemes-header{
+				flex-direction:column;
+				align-items:flex-start;
+				gap:8px;
+			}
+			.schemes-page{ padding:14px; }
+		}
+
+		/* Accessibility: focus outlines for keyboard users */
+		.scheme-card a:focus,
+		.schemes-header .back-link:focus{
+			outline: 3px solid rgba(16,185,129,0.16);
+			outline-offset: 2px;
+		}
+
+		/* Buttons / small controls */
+		.btn, .back-link{
+			font-weight:600;
+			color: var(--accent-dark);
+		}
+	</style>
+</head>
+<body>
+	<div class="schemes-page">
+		<div class="schemes-header">
+			<div>
+				<h1 style="margin:0;font-size:1.25rem">Government Schemes for Farmers</h1>
+				<div style="color:#6b7280;font-size:.95rem;margin-top:4px">Links and short descriptions</div>
+			</div>
+			<div>
+				<!-- Back to dashboard (stable path) -->
+				<a href="/dashboard" class="back-link">← Back to Dashboard</a>
+			</div>
+		</div>
+
+		<article class="scheme-card">
+			<h3>PM-Kisan (Pradhan Mantri Kisan Samman Nidhi)</h3>
+			<div class="scheme-meta">Income support to small and marginal farmers. Official: <a href="https://pmkisan.gov.in/" target="_blank" rel="noopener">pmkisan.gov.in</a></div>
+		</article>
+
+		<article class="scheme-card">
+			<h3>Pradhan Mantri Fasal Bima Yojana (PMFBY)</h3>
+			<div class="scheme-meta">Crop insurance to protect against yield losses. Official: <a href="https://pmfby.gov.in/" target="_blank" rel="noopener">pmfby.gov.in</a></div>
+		</article>
+
+		<article class="scheme-card">
+			<h3>National Agriculture Infrastructure Fund</h3>
+			<div class="scheme-meta">Financing for post-harvest infrastructure & warehousing. Official: <a href="https://agriinfra.dac.gov.in/" target="_blank" rel="noopener">agriinfra.dac.gov.in</a></div>
+		</article>
+
+		<article class="scheme-card">
+			<h3>Kisan Credit Card (KCC)</h3>
+			<div class="scheme-meta">Short-term credit to farmers for cultivation needs. Info: <a href="https://kisancreditcard.com/" target="_blank" rel="noopener">kisancreditcard.com</a></div>
+		</article>
+
+		<article class="scheme-card">
+			<h3>Soil Health Card</h3>
+			<div class="scheme-meta">Soil testing and nutrient recommendation program. Official info: <a href="https://soilhealth.dac.gov.in/" target="_blank" rel="noopener">soilhealth.dac.gov.in</a></div>
+		</article>
+
+		<article class="scheme-card">
+			<h3>Pradhan Mantri Krishi Sinchai Yojana (PMKSY)</h3>
+			<div class="scheme-meta">Improving farm irrigation coverage and water-use efficiency. Govt portal: <a href="https://pmksy.gov.in/" target="_blank" rel="noopener">pmksy.gov.in</a></div>
+		</article>
+
+		<div style="margin-top:16px;color:#6b7280;font-size:.9rem">
+			For a complete list visit <a href="https://www.india.gov.in/spotlight/schemes-farmers" target="_blank" rel="noopener">india.gov.in » Schemes for Farmers</a>.
+		</div>
+	</div>
+</body>
+</html>

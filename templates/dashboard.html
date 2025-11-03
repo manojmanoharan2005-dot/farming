@@ -33,6 +33,14 @@
         #topToolsPanel .tt-panel { box-sizing: border-box; }
         #topToolsPanel .tt-panel label, #topToolsPanel .tt-panel select, #topToolsPanel .tt-panel input { display:block; width:100%; }
         #topToolsPanel .tt-panel .btn { white-space:nowrap; }
+
+        /* Header layout: keep Govt Schemes, Tools, Today/date and Logout on one horizontal line */
+        .header-right { display:flex; align-items:center; gap:16px; }
+        .top-tools-wrap { position:relative; display:flex; align-items:center; gap:8px; /* panels are positioned absolute inside this */ }
+        .date-display { display:flex; flex-direction:column; align-items:flex-start; line-height:1; }
+        .date-display span:first-child { font-size:0.85rem; color:#6b7280; }
+        .current-date { margin-left:8px; font-weight:700; }
+        .logout-btn { margin-left:0; }
     </style>
 </head>
 <body class="dashboard-body">
@@ -96,13 +104,20 @@
                 </div>
                 <div class="header-right">
                     <!-- Tools button: placed to the LEFT of Today/date as requested -->
-                    <div class="top-tools-wrap" style="position:relative;margin-right:12px;display:inline-block;vertical-align:middle;">
-                        <button id="topToolsBtn" class="btn btn-outline" aria-expanded="false" aria-controls="topToolsPanel" title="Open Tools" style="padding:8px 10px;border-radius:8px;">
+                    <div class="top-tools-wrap">
+                        <!-- GOVT: main link (navigates) and small toggle (opens quick panel) -->
+                        <a id="govtSchemesBtn" class="btn btn-success" href="{{ url_for('static', filename='govt_schemes.html') }}" title="Government Schemes" style="padding:8px 10px;border-radius:8px;margin-right:6px;background:#10b981;color:#fff;border:0;text-decoration:none;display:inline-flex;align-items:center;gap:8px;">
+                            <i class="fas fa-landmark"></i> Govt Schemes
+                        </a>
+                        <button id="govtSchemesToggle" class="btn btn-outline" aria-expanded="false" aria-controls="govtSchemesPanel" title="Quick links" style="padding:8px;border-radius:8px;min-width:38px;">▾</button>
+
+                        <!-- Tools button (restored) -->
+                        <button id="topToolsBtn" class="btn btn-outline" aria-expanded="false" aria-controls="topToolsPanel" title="Open Tools" style="padding:8px 10px;border-radius:8px;margin-left:6px;">
                             <i class="fas fa-tools"></i> Tools
                         </button>
-
-                        <!-- Floating panel (hidden by default) -->
-                        <div id="topToolsPanel" style="display:none;position:absolute;right:0;top:42px;width:320px;background:#fff;border-radius:8px;box-shadow:0 8px 24px rgba(2,6,23,0.15);z-index:999;padding:10px;">
+                        
+                        <!-- Floating panel for Tools: keep aligned to the right of the wrapper -->
+                        <div id="topToolsPanel" style="display:none;position:absolute;right:0;top:42px;width:320px;background:#fff;border-radius:8px;box-shadow:0 8px 24px rgba(2,6,23,0.15);z-index:1200;padding:10px;">
                             <div style="display:flex;gap:6px;margin-bottom:8px;">
                                 <button class="tt-tab active" data-tab="estimator" style="flex:1;padding:8px;border-radius:6px;border:1px solid #e6eef0;background:#f8fafb;font-weight:600;">Estimator</button>
                                 <button class="tt-tab" data-tab="weather" style="flex:1;padding:8px;border-radius:6px;border:1px solid #e6eef0;background:#fff;font-weight:600;">Weather</button>
@@ -151,6 +166,31 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Govt schemes panel: align to the left of the wrapper so it appears under the GOVT button -->
+                        <div id="govtSchemesPanel" style="display:none;position:absolute;left:0;top:42px;width:340px;max-width:calc(100vw - 32px);background:#fff;border-radius:8px;box-shadow:0 8px 24px rgba(2,6,23,0.12);z-index:1100;padding:12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <strong style="font-size:0.95rem;">Government Schemes</strong>
+                                <button id="govtSchemesClose" aria-label="Close" style="background:none;border:none;font-size:18px;cursor:pointer;">×</button>
+                            </div>
++
++                            <p style="margin:0 0 8px;color:#445;font-size:.92rem;">Quick access to common central schemes for farmers.</p>
++
++                            <ul style="margin:0 0 10px;padding-left:18px;line-height:1.6;">
++                                <li><a href="https://pmkisan.gov.in/" target="_blank" rel="noopener">PM-Kisan (Direct income support)</a></li>
++                                <li><a href="https://pmfby.gov.in/" target="_blank" rel="noopener">Pradhan Mantri Fasal Bima Yojana (Crop Insurance)</a></li>
++                                <li><a href="https://agriinfra.dac.gov.in/" target="_blank" rel="noopener">National Agriculture Infrastructure Fund</a></li>
++                                <li><a href="https://farmer.gov.in/" target="_blank" rel="noopener">e-NAM / Farmer Portal</a></li>
++                                <li><a href="https://main.mekong.org.in/soil-health-card" target="_blank" rel="noopener">Soil Health Card (info)</a></li>
++                                <li><a href="https://kisancreditcard.com/" target="_blank" rel="noopener">Kisan Credit Card (KCC)</a></li>
++                            </ul>
++
++                            <div style="display:flex;gap:8px;">
++                                <!-- open static fallback page if app route isn't registered -->
++                                <a href="{{ url_for('static', filename='govt_schemes.html') }}" class="btn btn-outline" style="flex:1;padding:8px;border-radius:6px;text-align:center;">Open in app</a>
+                                  <a href="https://www.india.gov.in/spotlight/schemes-farmers" target="_blank" rel="noopener" class="btn btn-primary" style="flex:1;padding:8px;border-radius:6px;text-align:center;">All schemes (gov)</a>
+                              </div>
                         </div>
                     </div>
 
@@ -424,5 +464,60 @@
         });
     })();
     </script>
+
+    <!-- Old inline Govt Schemes handler removed to avoid intercepting the main link.
+         A small fallback script below binds the small toggle button to open/close the quick panel
+         and does NOT prevent the main Govt Schemes link from navigating. -->
+    <script>
+    // filepath: d:\farming\farming\templates\dashboard.html (govt toggle fallback)
+    (function(){
+        document.addEventListener('DOMContentLoaded', function () {
+-            // Keep tools button clearly visible above floating panels
+-            const style = document.createElement('style');
+-            style.textContent = `
+-                .top-tools-wrap > .btn { position: relative; z-index: 1100; }
+-                #topToolsPanel, #govtSchemesPanel { z-index: 1050; }
+-            `;
+-            document.head.appendChild(style);
++            // Ensure panels appear above the buttons; buttons remain clickable
++            const style = document.createElement('style');
++            style.textContent = `
++                .top-tools-wrap > .btn { position: relative; z-index: 1000; }
++                #govtSchemesPanel { z-index: 1100 !important; }
++                #topToolsPanel { z-index: 1200 !important; }
++            `;
++            document.head.appendChild(style);
+
+            const toggle = document.getElementById('govtSchemesToggle');
+            const panel = document.getElementById('govtSchemesPanel');
+            const closeBtn = document.getElementById('govtSchemesClose');
+
+            if (!toggle || !panel) return;
+
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+            });
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    panel.style.display = 'none';
+                });
+            }
+
+            document.addEventListener('click', function (e) {
+                if (!panel.contains(e.target) && !toggle.contains(e.target)) {
+                    panel.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && panel.style.display === 'block') panel.style.display = 'none';
+            });
+        });
+    })();
+    </script>
+
 </body>
 </html>
