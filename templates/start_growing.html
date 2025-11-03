@@ -382,7 +382,16 @@
 			<div class="tool-card timeline">
 				<h3><i class="fas fa-calendar-week"></i> Task Timeline</h3>
 				<form id="tlForm" class="tl-form">
-					<input id="tlName" type="text" placeholder="Task (e.g., Weeding)" required>
+					<select id="tlName" required style="padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff">
+						<option value="weeding">Weeding</option>
+						<option value="irrigation">Irrigation</option>
+						<option value="fertilizer application">Fertilizer Application</option>
+						<option value="pest management">Pest Management</option>
+						<option value="soil testing">Soil Testing</option>
+						<option value="harvest prep">Harvesting Preparation</option>
+						<option value="other">Other (enter below)</option>
+					</select>
+					<input id="tlNameCustom" type="text" placeholder="Custom task (visible when Other selected)" style="display:none;padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff">
 					<input id="tlDate" type="date" required>
 					<button class="btn-sm" type="submit"><i class="fas fa-plus"></i> Add</button>
 				</form>
@@ -533,6 +542,23 @@
 		const TL_KEY = 'hp_tl_' + CROP_KEY;
 		const tlForm = document.getElementById('tlForm');
 		const tlList = document.getElementById('taskTimeline');
+		const tlSelect = document.getElementById('tlName');
+		const tlCustom = document.getElementById('tlNameCustom');
+
+		// Show custom input when "Other" is selected
+		if (tlSelect && tlCustom) {
+			tlSelect.addEventListener('change', () => {
+				if (tlSelect.value === 'other') {
+					tlCustom.style.display = 'block';
+					tlCustom.focus();
+				} else {
+					tlCustom.style.display = 'none';
+					tlCustom.value = '';
+				}
+			});
+			// initialize visibility
+			if (tlSelect.value !== 'other') tlCustom.style.display = 'none';
+		}
 
 		function loadTasks(){ try { return JSON.parse(localStorage.getItem(TL_KEY) || '[]'); } catch { return []; } }
 		function saveTasks(arr){ localStorage.setItem(TL_KEY, JSON.stringify(arr)); }
@@ -553,11 +579,24 @@
 		}
 		tlForm?.addEventListener('submit', e=>{
 			e.preventDefault();
-			const name = document.getElementById('tlName').value.trim();
+			// Determine task name: prefer selected value, if 'other' use custom input
+			let name = '';
+			if (tlSelect) {
+				name = (tlSelect.value || '').trim();
+				if (name === 'other' && tlCustom) {
+					const custom = tlCustom.value.trim();
+					if (custom) name = custom;
+				}
+			} else {
+				name = document.getElementById('tlName')?.value.trim() || '';
+			}
 			const date = document.getElementById('tlDate').value;
 			if(!name || !date) return;
 			const arr = loadTasks(); arr.push({name, date, done:false}); saveTasks(arr);
-			tlForm.reset(); renderTasks();
+			// reset inputs: keep select at default (first option)
+			if (tlSelect) { tlSelect.selectedIndex = 0; if (tlCustom) { tlCustom.value = ''; tlCustom.style.display = 'none'; } }
+			document.getElementById('tlDate').value = '';
+			renderTasks();
 		});
 		tlList?.addEventListener('click', e=>{
 			const btn = e.target.closest('button'); if(!btn) return;

@@ -17,6 +17,22 @@
         #topToolsPanel .tt-wx-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
         #topToolsPanel .tt-wx-row input { flex:1; min-width:0; padding:8px; border:1px solid #e6eef0; border-radius:6px; }
         #topToolsPanel .tt-wx-row button { flex:0 0 auto; white-space:nowrap; padding:8px; border-radius:6px; }
+
+        /* Hide native number input spinners inside the tools panel */
+        #topToolsPanel input[type="number"]::-webkit-outer-spin-button,
+        #topToolsPanel input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        #topToolsPanel input[type="number"] {
+            -moz-appearance: textfield; /* Firefox */
+            appearance: textfield;
+        }
+
+        /* Prevent unexpected plus/minus styling from user agents and ensure compact layout */
+        #topToolsPanel .tt-panel { box-sizing: border-box; }
+        #topToolsPanel .tt-panel label, #topToolsPanel .tt-panel select, #topToolsPanel .tt-panel input { display:block; width:100%; }
+        #topToolsPanel .tt-panel .btn { white-space:nowrap; }
     </style>
 </head>
 <body class="dashboard-body">
@@ -94,12 +110,24 @@
 
                             <div id="ttEstimator" class="tt-panel" style="display:block;">
                                 <div style="display:grid;gap:8px;">
++                                   <label style="font-size:.85rem;color:#556">Estimate for</label>
++                                   <select id="ttEstimateFor" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
++                                       <option value="seed">Seed</option>
++                                       <option value="fertilizer">Fertilizer</option>
++                                       <option value="labor">Labor</option>
++                                       <option value="irrigation">Irrigation</option>
++                                       <option value="other">Other</option>
++                                   </select>
                                     <label style="font-size:.85rem;color:#556">Area (hectares)</label>
                                     <input id="ttArea" type="number" min="0" step="0.1" value="1" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
-                                    <label style="font-size:.85rem;color:#556">Seed rate (kg/ha)</label>
-                                    <input id="ttSeedRate" type="number" min="0" step="0.1" value="25" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
-                                    <label style="font-size:.85rem;color:#556">Seed price (₹/kg) — optional</label>
-                                    <input id="ttSeedPrice" type="number" min="0" step="0.01" placeholder="0.00" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
+-                                   <label style="font-size:.85rem;color:#556">Seed rate (kg/ha)</label>
+-                                   <input id="ttSeedRate" type="number" min="0" step="0.1" value="25" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
+-                                   <label style="font-size:.85rem;color:#556">Seed price (₹/kg) — optional</label>
+-                                   <input id="ttSeedPrice" type="number" min="0" step="0.01" placeholder="0.00" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
++                                   <label id="ttRateLabel" style="font-size:.85rem;color:#556">Rate (per hectare)</label>
++                                   <input id="ttRate" type="number" min="0" step="0.1" value="25" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
++                                   <label id="ttPriceLabel" style="font-size:.85rem;color:#556"></label>
++                                   <input id="ttPrice" type="number" min="0" step="0.01" placeholder="" style="padding:8px;border:1px solid #e6eef0;border-radius:6px;">
                                     <div style="display:flex;gap:8px;margin-top:6px;">
                                         <button id="ttCalcBtn" class="btn btn-primary" style="flex:1;padding:8px;border-radius:6px;">Calculate</button>
                                         <button id="ttClearBtn" class="btn btn-outline" style="flex:1;padding:8px;border-radius:6px;">Clear</button>
@@ -332,5 +360,69 @@
         .btn-primary{background:#007bff;color:#fff}
         .btn-outline{background:#f8f9fa;color:#333}
     </style>
+
+    <!-- Minimal fix: ensure estimator shows correct labels/defaults and remove legacy fields -->
+    <script>
+    // filepath: d:\farming\farming\templates\dashboard.html (inline script)
+    (function(){
+        document.addEventListener('DOMContentLoaded', function () {
+            // Remove legacy elements (if present) that caused duplicate seed fields
+            ['ttSeedRate','ttSeedPrice','ttSeed'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && el.parentElement) el.parentElement.removeChild(el);
+            });
+
+            const estimateFor = document.getElementById('ttEstimateFor');
+            const rateIn = document.getElementById('ttRate');
+            const priceIn = document.getElementById('ttPrice');
+            const rateLabel = document.getElementById('ttRateLabel');
+            const priceLabel = document.getElementById('ttPriceLabel');
+            const outEl = document.getElementById('ttEstimatorOut');
+
+            if (!estimateFor || !rateIn || !priceIn || !rateLabel || !priceLabel) return;
+
+            const defaults = {
+                seed:      { rate: 25,  rateLabel: 'Seed rate (kg/ha)',        priceLabel: 'Seed price (₹/kg) — optional',        pricePH: '₹ / kg',  unit: 'kg' },
+                fertilizer:{ rate: 150, rateLabel: 'Fertilizer (kg/ha)',     priceLabel: 'Fertilizer price (₹/kg) — optional', pricePH: '₹ / kg',  unit: 'kg' },
+                labor:     { rate: 40,  rateLabel: 'Labor (hours/ha)',      priceLabel: 'Labor cost (₹/hour) — optional',     pricePH: '₹ / hour', unit: 'hrs' },
+                irrigation:{ rate: 10,  rateLabel: 'Irrigation (hours/ha)', priceLabel: 'Irrigation cost (₹/hour) — optional', pricePH: '₹ / hour', unit: 'hrs' },
+                other:     { rate: 1,   rateLabel: 'Rate (unit/ha)',        priceLabel: 'Price (₹/unit) — optional',         pricePH: '₹ / unit', unit: 'units' }
+            };
+
+            function setRateDefaults(type) {
+                const cfg = defaults[type] || defaults.other;
+                // coerce existing value; only set default if empty/invalid
+                const cur = parseFloat(rateIn.value);
+                rateIn.value = (isNaN(cur) || cur <= 0) ? cfg.rate : cur;
+                rateLabel.textContent = cfg.rateLabel;
+                priceLabel.textContent = cfg.priceLabel;
+                priceIn.placeholder = cfg.pricePH;
+            }
+
+            // initialize from saved type or current select value
+            try {
+                const saved = localStorage.getItem('top_tools_est_type');
+                if (saved && estimateFor.querySelector(`option[value="${saved}"]`)) estimateFor.value = saved;
+            } catch (e) {}
+            setRateDefaults(estimateFor.value);
+
+            estimateFor.addEventListener('change', function (e) {
+                setRateDefaults(this.value);
+                if (outEl) outEl.innerHTML = '';
+                try { localStorage.setItem('top_tools_est_type', this.value); } catch (e) {}
+            });
+
+            // Sanity: ensure numeric inputs cannot accumulate stray text
+            rateIn.addEventListener('input', () => {
+                const v = parseFloat(rateIn.value);
+                if (!isFinite(v)) rateIn.value = '';
+            });
+            priceIn.addEventListener('input', () => {
+                const v = parseFloat(priceIn.value);
+                if (!isFinite(v)) priceIn.value = '';
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

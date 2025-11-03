@@ -4,6 +4,14 @@
         const panel = document.getElementById('topToolsPanel');
         if (!btn || !panel) return;
 
+        // Remove any legacy seed-specific inputs that may cause duplicates
+        try {
+            const legacySeedRate = document.getElementById('ttSeedRate');
+            if (legacySeedRate) legacySeedRate.remove();
+            const legacySeedPrice = document.getElementById('ttSeedPrice');
+            if (legacySeedPrice) legacySeedPrice.remove();
+        } catch (e) { /* ignore */ }
+
         // Toggle panel
         btn.addEventListener('click', (e) => {
             const shown = panel.style.display === 'block';
@@ -32,35 +40,104 @@
 
         /* ===== Task Estimator ===== */
         const areaIn = document.getElementById('ttArea');
-        const rateIn = document.getElementById('ttSeedRate');
-        const priceIn = document.getElementById('ttSeedPrice');
+        const rateIn = document.getElementById('ttRate');
+        const priceIn = document.getElementById('ttPrice');
+        const estimateFor = document.getElementById('ttEstimateFor');
+        const rateLabel = document.getElementById('ttRateLabel');
+        const priceLabel = document.getElementById('ttPriceLabel');
         const outEl = document.getElementById('ttEstimatorOut');
         const calcBtn = document.getElementById('ttCalcBtn');
         const clearBtn = document.getElementById('ttClearBtn');
 
+        const LS_EST_TYPE = 'top_tools_est_type';
+        // restore estimator type
+        try { const savedType = localStorage.getItem(LS_EST_TYPE); if (savedType && estimateFor) estimateFor.value = savedType; } catch (e) {}
+
+        function setRateDefaults(type) {
+            // set sensible defaults per type and update labels/placeholders
+            switch (type) {
+                case 'seed':
+                    rateIn.value = rateIn.value && +rateIn.value>0 ? rateIn.value : 25;
+                    rateLabel.textContent = 'Seed rate (kg/ha)';
+                    priceLabel.textContent = 'Seed price (₹/kg) — optional';
+                    priceIn.placeholder = '₹ / kg';
+                    break;
+                case 'fertilizer':
+                    rateIn.value = rateIn.value && +rateIn.value>0 ? rateIn.value : 150;
+                    rateLabel.textContent = 'Fertilizer (kg/ha)';
+                    priceLabel.textContent = 'Fertilizer price (₹/kg) — optional';
+                    priceIn.placeholder = '₹ / kg';
+                    break;
+                case 'labor':
+                    rateIn.value = rateIn.value && +rateIn.value>0 ? rateIn.value : 40;
+                    rateLabel.textContent = 'Labor (hours/ha)';
+                    priceLabel.textContent = 'Labor cost (₹/hour) — optional';
+                    priceIn.placeholder = '₹ / hour';
+                    break;
+                case 'irrigation':
+                    rateIn.value = rateIn.value && +rateIn.value>0 ? rateIn.value : 10;
+                    rateLabel.textContent = 'Irrigation (hours/ha)';
+                    priceLabel.textContent = 'Irrigation cost (₹/hour) — optional';
+                    priceIn.placeholder = '₹ / hour';
+                    break;
+                default:
+                    rateIn.value = rateIn.value && +rateIn.value>0 ? rateIn.value : 1;
+                    rateLabel.textContent = 'Rate (unit/ha)';
+                    priceLabel.textContent = 'Price (₹/unit) — optional';
+                    priceIn.placeholder = '₹ / unit';
+            }
+        }
+
+        function unitForType(type) {
+            switch (type) {
+                case 'seed':
+                case 'fertilizer': return 'kg';
+                case 'labor':
+                case 'irrigation': return 'hrs';
+                default: return 'units';
+            }
+        }
+
         function calcEstimator(){
+            const type = (estimateFor?.value || 'seed');
             const area = Math.max(0, parseFloat(areaIn.value) || 0);
             const rate = Math.max(0, parseFloat(rateIn.value) || 0);
             const price = parseFloat(priceIn.value);
-            const seedNeeded = +(area * rate).toFixed(2);
-            let html = `<div><strong>Seed required:</strong> ${seedNeeded.toLocaleString()} kg</div>`;
+            const unit = unitForType(type);
+
+            const amountNeeded = +(area * rate).toFixed(2);
+            let html = `<div><strong>${amountNeeded.toLocaleString()} ${unit}</strong> required</div>`;
             if (!isNaN(price) && price > 0) {
-                const cost = +(seedNeeded * price).toFixed(2);
-                html += `<div><strong>Estimated seed cost:</strong> ₹${cost.toLocaleString()}</div>`;
+                const cost = +(amountNeeded * price).toFixed(2);
+                html += `<div style="margin-top:6px;"><strong>Estimated cost:</strong> ₹${cost.toLocaleString()}</div>`;
+            } else {
+                html += `<div style="margin-top:6px;color:#6b7280">Enter price to see estimated cost</div>`;
             }
             outEl.innerHTML = html;
+            // persist estimator type
+            try { localStorage.setItem(LS_EST_TYPE, type); } catch (e) {}
         }
 
-        calcBtn?.addEventListener('click', (e) => { e.preventDefault(); calcEstimator(); });
-        clearBtn?.addEventListener('click', (e) => {
-            e.preventDefault();
+        function clearEstimator(){
             if(areaIn) areaIn.value = '1';
-            if(rateIn) rateIn.value = '25';
+            if(rateIn) rateIn.value = '';
             if(priceIn) priceIn.value = '';
             outEl.innerHTML = '';
-        });
+        }
 
-        /* ===== Weather tab ===== */
+        // initialize labels/defaults on load (ensures "seed price" text only appears for Seed)
+        setRateDefaults(estimateFor?.value || 'seed');
+
+        // listeners
+        estimateFor?.addEventListener('change', (e) => {
+            setRateDefaults(e.target.value);
+            outEl.innerHTML = '';
+            try { localStorage.setItem(LS_EST_TYPE, e.target.value); } catch (e) {}
+        });
+        calcBtn?.addEventListener('click', (e) => { e.preventDefault(); calcEstimator(); });
+        clearBtn?.addEventListener('click', (e) => { e.preventDefault(); clearEstimator(); });
+
+        /* ===== Weather tab (unchanged) ===== */
         const wxOut = document.getElementById('ttWxOut');
         const wxRefresh = document.getElementById('ttWxRefresh');
         const wxLocIn = document.getElementById('ttWxLocation');
@@ -75,7 +152,6 @@
         try { const saved = localStorage.getItem(LS_LOC_KEY); if (saved && wxLocIn) wxLocIn.value = saved; } catch (e) {}
 
         async function fetchWeatherFromWeatherAPIByQ(q) {
-            // q may be city or "lat,lon"
             const url = `https://api.weatherapi.com/v1/current.json?key=${encodeURIComponent(WEATHERAPI_KEY)}&q=${encodeURIComponent(q)}&aqi=no`;
             const res = await fetch(url);
             if (!res.ok) throw new Error('WeatherAPI request failed');
@@ -83,7 +159,6 @@
         }
 
         async function fetchWeatherFallbackByQ(q) {
-            // backend proxy expected to accept ?q=...
             const url = q ? `/api/weather?q=${encodeURIComponent(q)}` : '/api/weather';
             const res = await fetch(url);
             if (!res.ok) throw new Error('Backend weather request failed');
@@ -122,11 +197,9 @@
             if (!wxOut) return;
             wxOut.innerHTML = '<div>Loading…</div>';
 
-            // If manual location provided, use it
             const manualQ = (wxLocIn?.value || '').trim();
             if (manualQ) {
                 try {
-                    // persist manual location
                     try { localStorage.setItem(LS_LOC_KEY, manualQ); } catch (e) {}
                     if (WEATHERAPI_KEY) {
                         const j = await fetchWeatherFromWeatherAPIByQ(manualQ);
@@ -137,12 +210,10 @@
                     }
                     return;
                 } catch (err) {
-                    // try fallback if possible
                     console.warn('Manual location weather failed, trying fallback', err);
                 }
             }
 
-            // If user requested geolocation or no manual q, use geolocation
             if (useMyLocation || !manualQ) {
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -162,27 +233,17 @@
                             console.error('weather fetch failed', err);
                         }
                     }, async (err) => {
-                        // geolocation denied / failed: fallback to backend without coords
                         try {
-                            if (WEATHERAPI_KEY) {
-                                // no coords to supply: try backend instead
-                                const j = await fetch('/api/weather');
-                                if (!j.ok) throw new Error('no backend');
-                                const data = await j.json();
-                                renderWeatherData(data);
-                            } else {
-                                const j = await fetch('/api/weather');
-                                if (!j.ok) throw new Error('no backend');
-                                const data = await j.json();
-                                renderWeatherData(data);
-                            }
+                            const j = await fetch('/api/weather');
+                            if (!j.ok) throw new Error('no backend');
+                            const data = await j.json();
+                            renderWeatherData(data);
                         } catch (e) {
                             wxOut.innerHTML = '<div style="color:#b91c1c">Unable to load weather</div>';
                         }
                     }, { timeout: 5000 });
                     return;
                 } else {
-                    // no geolocation: backend only
                     try {
                         const j = await fetch('/api/weather');
                         if (!j.ok) throw new Error('no backend');
@@ -198,7 +259,6 @@
         wxRefresh?.addEventListener('click', (e) => { e.preventDefault(); fetchWeatherForTop(); });
         wxUseMy?.addEventListener('click', (e) => { e.preventDefault(); if (wxLocIn) wxLocIn.value = ''; fetchWeatherForTop(true); });
 
-        // Enter key in location input triggers search
         wxLocIn?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
