@@ -1,11 +1,7 @@
-Flask==2.3.3
-Werkzeug==2.3.7
-Jinja2==3.1.2
-MarkupSafe==2.1.3
-itsdangerous==2.1.2
-click==8.1.7
-blinker==1.6.3
-pymongo==4.6.0
-flask-pymongo==2.3.0
-bcrypt==4.1.2
-python-dotenv==1.0.0
+Flask>=2.0
+gunicorn>=20.1
+Jinja2>=3.0
+requests>=2.0
+# add your other dependencies below, e.g.
+# SQLAlchemy>=1.4
+# psycopg2-binary>=2.9
