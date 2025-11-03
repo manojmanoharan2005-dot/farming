@@ -389,32 +389,6 @@
 				<div id="taskTimeline" class="tl-list"></div>
 			</div>
 
-			<div class="tool-card calculator">
-				<h3><i class="fas fa-calculator"></i> Cost Estimator</h3>
-				<div class="calc-grid" id="costCalculator">
-					<input id="areaHa" type="number" min="0" step="0.1" value="1" placeholder="Area (hectares)">
-					<input id="cSeed" type="number" min="0" step="0.01" value="0" placeholder="Seed (₹/ha)">
-					<input id="cFert" type="number" min="0" step="0.01" value="0" placeholder="Fertilizer (₹/ha)">
-					<input id="cLabor" type="number" min="0" step="0.01" value="0" placeholder="Labor (₹/ha)">
-					<input id="cIrr" type="number" min="0" step="0.01" value="0" placeholder="Irrigation (₹/ha)">
-					<input id="cOther" type="number" min="0" step="0.01" value="0" placeholder="Other (₹/ha)">
-					<input id="yieldQ" type="number" min="0" step="0.1" value="50" placeholder="Expected Yield (q/ha)">
-					<input id="priceQ" type="number" min="0" step="0.1" value="2500" placeholder="Market Price (₹/q)">
-				</div>
-				<div class="calc-summary">
-					<div class="calc-card"><strong>Total Cost:</strong><div id="outCost">₹0</div></div>
-					<div class="calc-card"><strong>Revenue:</strong><div id="outRev">₹0</div></div>
-					<div class="calc-card"><strong>Profit:</strong><div id="outProfit">₹0</div></div>
-					<div class="calc-card"><strong>Cost/ha:</strong><div id="outCostHa">₹0</div></div>
-				</div>
-			</div>
-
-			<div class="tool-card weather" id="weatherCard" data-provider="weatherapi" data-api-key="22f4bcbb814b4ffc914175512252610">
-				<h3><i class="fas fa-cloud-sun"></i> Weather Alerts</h3>
-				<div id="weatherAlerts" class="wx-list"></div>
-				<div class="pill" id="wxStatus">Detecting location…</div>
-			</div>
-
 			<!-- Harvest Planner -->
 			<div class="tool-card harvest-planner">
 				<h3><i class="fas fa-wheat-awn"></i> Harvest Planner</h3>
@@ -594,123 +568,9 @@
 		});
 		renderTasks();
 
-		/* ===== Cost Estimator ===== */
-		const CE_KEY = 'hp_ce_' + CROP_KEY;
-		const ids = ['areaHa','cSeed','cFert','cLabor','cIrr','cOther','yieldQ','priceQ'];
-		const els = Object.fromEntries(ids.map(id=>[id, document.getElementById(id)]));
-		function loadCE(){ try { const v = JSON.parse(localStorage.getItem(CE_KEY)||'{}'); for (const k of ids){ if(v[k]!=null && els[k]) els[k].value = v[k]; } } catch{} }
-		function saveCE(){ const v = {}; for(const k of ids){ v[k]=+els[k].value||0; } localStorage.setItem(CE_KEY, JSON.stringify(v)); }
-		function ru(n){ return '₹' + (Math.round(n).toLocaleString('en-IN')); }
-		function calc(){
-			const area=+els.areaHa.value||0;
-			const perHa = (+els.cSeed.value||0)+(+els.cFert.value||0)+(+els.cLabor.value||0)+(+els.cIrr.value||0)+(+els.cOther.value||0);
-			const cost = perHa*area;
-			const revenue = area*(+els.yieldQ.value||0)*(+els.priceQ.value||0);
-			const profit = revenue - cost;
-			document.getElementById('outCost').textContent = ru(cost);
-			document.getElementById('outRev').textContent = ru(revenue);
-			document.getElementById('outProfit').textContent = ru(profit);
-			document.getElementById('outCostHa').textContent = ru(perHa);
-			saveCE();
-		}
-		ids.forEach(id=>els[id]?.addEventListener('input', calc));
-		loadCE(); calc();
+		/* ===== Removed: Cost Estimator ===== */
+		/* ===== Removed: Weather Alerts ===== */
 
-		/* ===== Weather Alerts (Open‑Meteo by default; OpenWeather if API provided) ===== */
-		const wxCard   = document.getElementById('weatherCard');
-		const wxList   = document.getElementById('weatherAlerts');
-		const wxStatus = document.getElementById('wxStatus');
-		const provider = (wxCard?.dataset.provider || 'open-meteo').toLowerCase();
-		// Read API key from data attribute, then meta (OpenWeather or WeatherAPI)
-		const apiKey = (wxCard?.dataset.apiKey || '').trim()
-			|| (document.querySelector('meta[name="openweather-key"]')?.content || '').trim()
-			|| (document.querySelector('meta[name="weatherapi-key"]')?.content || '').trim();
-
-		function renderWeather(daily){
-			const { time, temperature_2m_max:maxT, temperature_2m_min:minT, precipitation_sum:prec } = daily;
-			wxList.innerHTML = time.slice(0,5).map((d,i)=>{
-				const alert = (prec[i]>10) || (maxT[i]>40) || (minT[i]<8);
-				return `<div class="wx-item">
-					<div><strong>${new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</strong>
-					<div class="pill">${minT[i]}°C / ${maxT[i]}°C</div></div>
-					<div>${prec[i]} mm ${alert?'<span class="wx-alert">Alert</span>':''}</div>
-				</div>`;
-			}).join('');
-			wxStatus.textContent = 'Forecast loaded';
-		}
-
-		function fetchWX_OpenMeteo(lat,lon){
-			wxStatus.textContent = 'Loading forecast…';
-			fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`)
-				.then(r=>r.json()).then(j=>renderWeather(j.daily))
-				.catch(()=>{ wxStatus.textContent='Weather service unavailable'; });
-		}
-
-		function fetchWX_OpenWeather(lat,lon){
-			if(!apiKey){ fetchWX_OpenMeteo(lat,lon); return; }
-			wxStatus.textContent = 'Loading forecast…';
-			/* One Call daily forecast (metric). Falls back to Open‑Meteo on error. */
-			fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=current,minutely,hourly,alerts&units=metric&appid=${apiKey}`)
-				.then(r=>r.json())
-				.then(j=>{
-					if(!j.daily) throw new Error('no daily');
-					const time=[], tmax=[], tmin=[], prec=[];
-					j.daily.slice(0,5).forEach(d=>{
-						time.push(new Date(d.dt*1000).toISOString().slice(0,10));
-						tmax.push(Math.round(d.temp.max));
-						tmin.push(Math.round(d.temp.min));
-						prec.push(Math.round((d.rain||0)));
-					});
-					renderWeather({
-						time,
-						temperature_2m_max:tmax,
-						temperature_2m_min:tmin,
-						precipitation_sum:prec
-					});
-				})
-				.catch(()=>fetchWX_OpenMeteo(lat,lon));
-		}
-
-		// NEW: WeatherAPI (weatherapi.com) daily forecast -> normalized to renderWeather
-		function fetchWX_WeatherAPI(lat, lon){
-			if(!apiKey){ wxStatus.textContent = 'Weather API key missing'; return; }
-			wxStatus.textContent = 'Loading forecast…';
-			fetch(`https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${lat},${lon}&days=5&aqi=no&alerts=yes`)
-				.then(r => r.json())
-				.then(j => {
-					const days = j?.forecast?.forecastday || [];
-					if(!days.length) throw new Error('no forecast');
-					const time = [], tmax = [], tmin = [], prec = [];
-					days.forEach(d => {
-						time.push(d.date);
-						tmax.push(Math.round(d.day?.maxtemp_c ?? 0));
-						tmin.push(Math.round(d.day?.mintemp_c ?? 0));
-						prec.push(Math.round(d.day?.totalprecip_mm ?? 0));
-					});
-					renderWeather({
-						time,
-						temperature_2m_max: tmax,
-						temperature_2m_min: tmin,
-						precipitation_sum: prec
-					});
-				})
-				.catch(() => { wxStatus.textContent = 'Weather service unavailable'; });
-		}
-
-		function fetchWX(lat,lon){
-			if(provider==='openweather') return fetchWX_OpenWeather(lat,lon);
-			if(provider==='weatherapi')  return fetchWX_WeatherAPI(lat,lon);
-			return fetchWX_OpenMeteo(lat,lon);
-		}
-
-		if(navigator.geolocation){
-			navigator.geolocation.getCurrentPosition(
-				pos=>fetchWX(pos.coords.latitude,pos.coords.longitude),
-				()=>fetchWX(28.6139,77.2090) // Fallback: New Delhi
-			);
-		}else{
-			fetchWX(28.6139,77.2090);
-		}
 	});
 
 	// NEW: global startMonitoring function (calls backend to save progress)
