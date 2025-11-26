@@ -101,22 +101,23 @@ users_collection = None
 crops_collection = None
 weather_collection = None
 market_collection = None
+client = None
 
 try:
     # Get credentials from environment
-    mongo_user = os.getenv('MONGO_USER', 'admin')
+    mongo_user = os.getenv('MONGO_USER', '')
     mongo_password = os.getenv('MONGO_PASSWORD', '')
     mongo_cluster = os.getenv('MONGO_CLUSTER', 'cluster0.c3ia7tt.mongodb.net')
     
-    if not mongo_password:
-        print("Warning: MONGO_PASSWORD not set")
+    if not mongo_user or not mongo_password:
+        print("⚠️ Warning: MONGO_USER or MONGO_PASSWORD not set")
     else:
         # Build connection string with encoded password
         encoded_password = quote_plus(mongo_password)
         mongo_uri = f"mongodb+srv://{mongo_user}:{encoded_password}@{mongo_cluster}/farmerdb?retryWrites=true&w=majority&appName=Cluster0"
         
         # Connect to MongoDB Atlas
-        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=10000)
         
         # Test the connection
         client.admin.command('ping')
@@ -132,6 +133,7 @@ try:
         print("✅ Connected to MongoDB Atlas farmerdb successfully!")
 except Exception as e:
     print(f"❌ MongoDB connection error: {e}")
+    # Don't crash - app will show "Database not available" message
 
 # ------------------ Helper Functions ------------------ #
 def hash_password(password):
@@ -722,12 +724,12 @@ def mark_task_done():
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
 # Initialize on startup (only for non-Vercel)
-if not IS_VERCEL and sqlite3:
+if not IS_VERCEL and sqlite3 is not None:
     ensure_progress_table()
 
 # ------------------ Run App ------------------ #
 if __name__ == '__main__':
     print("🚀 Starting Farming Assistant Application with MongoDB...")
     init_db()
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
     app.run(debug=False, host='0.0.0.0', port=port)
