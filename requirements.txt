@@ -5,3 +5,5 @@ bcrypt
 dnspython
 pandas
 gunicorn
+bson
+Werkzeug
