@@ -612,60 +612,187 @@
 
 	});
 
-	// NEW: global startMonitoring function (calls backend to save progress)
+	// UPDATED: global startMonitoring function with SQLite-aware error handling
 	window.startMonitoring = function() {
 		try {
+			// Feature detection
+			if (typeof fetch === 'undefined') {
+				alert('Monitoring feature is not available in this environment. Please try using a modern web browser.');
+				return;
+			}
+
 			const crop = document.getElementById('hpCropName').value || 'Crop';
 			const sowingVal = document.getElementById('sowingDate').value;
 			const duration = Math.max(1, parseInt(document.getElementById('cropDuration').value || '90', 10));
+			
 			if (!sowingVal) {
-				alert('Please select sowing date first.');
+				alert('Please select sowing date first in the Harvest Planner section above.');
 				return;
 			}
+
 			const sowing = new Date(sowingVal + 'T00:00:00');
 			const msDay = 24 * 60 * 60 * 1000;
 			const harvest = new Date(sowing.getTime() + duration * msDay);
 
-			// Read timeline from localStorage (same key used in page)
+			// Read timeline from localStorage
 			const TL_KEY = 'hp_tl_' + (crop || 'crop');
 			let tasks = [];
-			try { tasks = JSON.parse(localStorage.getItem(TL_KEY) || '[]'); } catch(e){ tasks = []; }
+			try { 
+				tasks = JSON.parse(localStorage.getItem(TL_KEY) || '[]'); 
+			} catch(e){ 
+				console.warn('Could not load tasks from localStorage:', e);
+				tasks = []; 
+			}
 
-			// Normalize task dates to YYYY-MM-DD and ensure done flag
+			// Normalize task dates and ensure done flag
 			tasks = tasks.map(t => ({
 				name: t.name || t.task || 'Task',
 				date: (t.date || '').slice(0,10),
 				done: !!t.done
 			}));
 
-			// POST to backend
+			const payload = {
+				crop_name: crop,
+				start_date: sowing.toISOString().slice(0,10),
+				harvest_date: harvest.toISOString().slice(0,10),
+				task_timeline: tasks,
+				status: 'monitoring',
+				recommendation: ''
+			};
+
+			// Show loading state
+			const btn = event.target;
+			const originalText = btn.innerHTML;
+			btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+			btn.disabled = true;
+
+			// POST to backend with timeout and comprehensive error handling
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout for SQLite operations
+
 			fetch('/save_progress', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					crop_name: crop,
-					start_date: sowing.toISOString().slice(0,10),
-					harvest_date: harvest.toISOString().slice(0,10),
-					task_timeline: tasks,
-					status: 'monitoring',
-					recommendation: ''
-				})
+				headers: { 
+					'Content-Type': 'application/json',
+					'Accept': 'application/json'
+				},
+				body: JSON.stringify(payload),
+				signal: controller.signal
 			})
-			.then(r => r.json())
-			.then(j => {
-				if (j.status === 'success') {
-					alert('Monitoring started — progress saved.');
-					// Optionally redirect to dashboard to view monitoring list
-					window.location.href = '/dashboard';
+			.then(response => {
+				clearTimeout(timeoutId);
+				
+				// Handle different response types
+				const contentType = response.headers.get('content-type');
+				if (!response.ok) {
+					throw new Error(`Server Error ${response.status}: ${response.statusText}`);
+				}
+				
+				if (contentType && contentType.includes('application/json')) {
+					return response.json();
 				} else {
-					alert('Failed to start monitoring: ' + (j.error || JSON.stringify(j)));
+					// Handle non-JSON responses (sometimes servers return plain text errors)
+					return response.text().then(text => {
+						try {
+							return JSON.parse(text);
+						} catch {
+							throw new Error(`Server returned unexpected response: ${text}`);
+						}
+					});
 				}
 			})
-			.catch(err => { alert('Network error: ' + err); });
-		} catch (e) {
-			console.error(e);
-			alert('Unable to start monitoring.');
+			.then(data => {
+				if (data.status === 'success') {
+					alert('✓ Monitoring started successfully! Your crop progress has been saved to the database.');
+					// Store success in localStorage as backup
+					localStorage.setItem('last_monitoring_success', JSON.stringify({
+						crop: crop,
+						date: new Date().toISOString(),
+						sowing_date: payload.start_date,
+						harvest_date: payload.harvest_date
+					}));
+					
+					// Redirect to dashboard
+					setTimeout(() => {
+						window.location.href = '/dashboard';
+					}, 1000);
+				} else {
+					throw new Error(data.error || data.message || 'Database operation failed');
+				}
+			})
+			.catch(error => {
+				clearTimeout(timeoutId);
+				console.error('Monitoring error:', error);
+				
+				let errorMessage = 'Failed to start monitoring. ';
+				
+				if (error.name === 'AbortError') {
+					errorMessage += 'Operation timed out. The database might be busy. Please try again.';
+				} else if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
+					errorMessage += 'Network connection issue. Please check your internet connection.';
+				} else if (error.message.includes('Database') || error.message.includes('SQLite') || error.message.includes('database')) {
+					errorMessage += 'Database error occurred. Your data has been saved locally as backup.';
+					// Save to localStorage as fallback
+					localStorage.setItem('pending_monitoring_' + Date.now(), JSON.stringify(payload));
+				} else if (error.message.includes('Server Error 5')) {
+					errorMessage += 'Server database error. Please contact support if this persists.';
+				} else {
+					errorMessage += error.message || 'Please try again later.';
+				}
+				
+				alert(errorMessage);
+				
+				// Offer manual redirect option on certain errors
+				if (error.message.includes('Database') || error.message.includes('timeout')) {
+					setTimeout(() => {
+						if (confirm('Would you like to go to the dashboard anyway? Your data may have been saved.')) {
+							window.location.href = '/dashboard';
+						}
+					}, 2000);
+				}
+			})
+			.finally(() => {
+				// Restore button state
+				btn.innerHTML = originalText;
+				btn.disabled = false;
+			});
+
+		} catch (error) {
+			console.error('Monitoring setup error:', error);
+			alert('Unable to start monitoring. Please ensure you have filled in the harvest planner details above and try again.');
 		}
+	};
+
+	// Add utility function to retry failed monitoring attempts
+	window.retryPendingMonitoring = function() {
+		const keys = Object.keys(localStorage).filter(k => k.startsWith('pending_monitoring_'));
+		if (keys.length === 0) {
+			alert('No pending monitoring data found.');
+			return;
+		}
+		
+		keys.forEach(key => {
+			try {
+				const data = JSON.parse(localStorage.getItem(key));
+				// Retry the request
+				fetch('/save_progress', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(data)
+				})
+				.then(r => r.json())
+				.then(result => {
+					if (result.status === 'success') {
+						localStorage.removeItem(key);
+						console.log('Successfully synced pending monitoring data');
+					}
+				})
+				.catch(e => console.warn('Still unable to sync:', e));
+			} catch (e) {
+				console.warn('Invalid pending data:', e);
+				localStorage.removeItem(key);
+			}
+		});
 	};
 	</script>
 </body>
