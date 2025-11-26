@@ -6,11 +6,6 @@ import bcrypt
 from bson.objectid import ObjectId
 from dotenv import load_dotenv
 import random
-from crop_data import crop_dataset
-from fertilizer_data import fertilizer_dataset
-from add_dashboard_fertilizer import dashboard_fertilizer_bp, DB_PATH, ensure_table_exists
-from crop_progress import progress_bp
-import sqlite3
 import json
 from urllib.parse import quote_plus
 
@@ -19,10 +14,94 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'farming-assistant-secret-key-2024')
-app.register_blueprint(dashboard_fertilizer_bp)
-app.register_blueprint(progress_bp)
+
+# Try to import optional modules (may fail on Vercel)
+try:
+    from crop_data import crop_dataset
+except ImportError:
+    crop_dataset = None
+
+try:
+    from fertilizer_data import fertilizer_dataset
+except ImportError:
+    fertilizer_dataset = None
+
+# Skip SQLite-dependent blueprints on Vercel (no file system)
+IS_VERCEL = os.environ.get('VERCEL', False)
+
+# Define SQLite paths and functions (will be disabled on Vercel)
+PROGRESS_DB_PATH = os.path.join(os.path.dirname(__file__), 'progress.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), 'dashboard_fertilizers.db')
+sqlite3 = None
+
+def ensure_progress_table():
+    """Ensure SQLite progress DB and table exist"""
+    if IS_VERCEL or sqlite3 is None:
+        return  # Skip on Vercel
+    try:
+        conn = sqlite3.connect(PROGRESS_DB_PATH)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS crop_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT,
+                crop_name TEXT,
+                start_date TEXT,
+                harvest_date TEXT,
+                task_timeline TEXT,
+                status TEXT,
+                recommendation TEXT
+            )
+        """)
+        conn.commit()
+    finally:
+        conn.close()
+
+def ensure_table_exists():
+    """Ensure SQLite fertilizers table exists"""
+    if IS_VERCEL or sqlite3 is None:
+        return  # Skip on Vercel
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS dashboard_fertilizers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fertilizer_name TEXT,
+                cost TEXT,
+                yield_increase TEXT,
+                application_time TEXT,
+                date_added TEXT,
+                status TEXT,
+                selected_for TEXT,
+                suitability TEXT,
+                user_id TEXT
+            )
+        """)
+        conn.commit()
+    finally:
+        conn.close()
+
+if not IS_VERCEL:
+    try:
+        import sqlite3 as sqlite3_module
+        sqlite3 = sqlite3_module
+        from add_dashboard_fertilizer import dashboard_fertilizer_bp, DB_PATH as FERT_DB_PATH, ensure_table_exists as fert_ensure_table
+        from crop_progress import progress_bp
+        DB_PATH = FERT_DB_PATH
+        ensure_table_exists = fert_ensure_table
+        app.register_blueprint(dashboard_fertilizer_bp)
+        app.register_blueprint(progress_bp)
+    except Exception as e:
+        print(f"Warning: Could not load SQLite blueprints: {e}")
 
 # ------------------ MongoDB Configuration ------------------ #
+db = None
+users_collection = None
+crops_collection = None
+weather_collection = None
+market_collection = None
+
 try:
     # Get credentials from environment
     mongo_user = os.getenv('MONGO_USER', 'admin')
@@ -30,31 +109,29 @@ try:
     mongo_cluster = os.getenv('MONGO_CLUSTER', 'cluster0.c3ia7tt.mongodb.net')
     
     if not mongo_password:
-        raise Exception("MONGO_PASSWORD environment variable not set. Please check your .env file.")
-    
-    # Build connection string with encoded password
-    encoded_password = quote_plus(mongo_password)
-    mongo_uri = f"mongodb+srv://{mongo_user}:{encoded_password}@{mongo_cluster}/farmerdb?retryWrites=true&w=majority&appName=Cluster0"
-    
-    # Connect to MongoDB Atlas
-    client = MongoClient(mongo_uri)
-    
-    # Test the connection
-    client.admin.command('ping')
-    
-    db = client["farmerdb"]   # Ensure the database name is farmerdb
+        print("Warning: MONGO_PASSWORD not set")
+    else:
+        # Build connection string with encoded password
+        encoded_password = quote_plus(mongo_password)
+        mongo_uri = f"mongodb+srv://{mongo_user}:{encoded_password}@{mongo_cluster}/farmerdb?retryWrites=true&w=majority&appName=Cluster0"
+        
+        # Connect to MongoDB Atlas
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+        
+        # Test the connection
+        client.admin.command('ping')
+        
+        db = client["farmerdb"]
 
-    # Collections
-    users_collection = db["users"]
-    crops_collection = db["crops"]
-    weather_collection = db["weather"]
-    market_collection = db["market_prices"]
+        # Collections
+        users_collection = db["users"]
+        crops_collection = db["crops"]
+        weather_collection = db["weather"]
+        market_collection = db["market_prices"]
 
-    print("✅ Connected to MongoDB Atlas farmerdb successfully!")
-    print(f"Available collections: {db.list_collection_names()}")
+        print("✅ Connected to MongoDB Atlas farmerdb successfully!")
 except Exception as e:
     print(f"❌ MongoDB connection error: {e}")
-    raise e  # Stop the app if DB connection fails
 
 # ------------------ Helper Functions ------------------ #
 def hash_password(password):
@@ -67,6 +144,9 @@ def check_password(password, hashed):
 
 def init_db():
     """Initialize database with sample data"""
+    if db is None:
+        print("Database not connected, skipping init")
+        return
     try:
         # Ensure unique email index
         users_collection.create_index("email", unique=True)
@@ -103,34 +183,9 @@ def init_db():
             market_collection.insert_many(market_data)
             print("📈 Sample market data added")
 
-        print("✅ Database farmerdb initialized successfully!")
-
+        print("✅ Database initialized!")
     except Exception as e:
-        print(f"❌ Database initialization error: {e}")
-
-# New: Progress DB path
-PROGRESS_DB_PATH = os.path.join(os.path.dirname(__file__), 'progress.db')
-
-def ensure_progress_table():
-    """Ensure SQLite progress DB and table exist"""
-    try:
-        conn = sqlite3.connect(PROGRESS_DB_PATH)
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS crop_progress (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT,
-                crop_name TEXT,
-                start_date TEXT,
-                harvest_date TEXT,
-                task_timeline TEXT,
-                status TEXT,
-                recommendation TEXT
-            )
-        """)
-        conn.commit()
-    finally:
-        conn.close()
+        print(f"❌ Database init error: {e}")
 
 # ------------------ Routes ------------------ #
 @app.route('/')
@@ -140,6 +195,10 @@ def index():
 # -------- Login -------- #
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if users_collection is None:
+        flash('Database not available', 'error')
+        return render_template('login.html')
+    
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
@@ -154,17 +213,10 @@ def login():
                 session['user_id'] = str(user['_id'])
                 session['user_name'] = user['name']
                 session['user_email'] = user['email']
-
-                users_collection.update_one(
-                    {"_id": user['_id']},
-                    {"$set": {"last_login": datetime.utcnow()}}
-                )
-
                 flash('Login successful!', 'success')
                 return redirect(url_for('dashboard'))
             else:
                 flash('Invalid credentials!', 'error')
-
         except Exception as e:
             flash(f'Login error: {str(e)}', 'error')
 
@@ -237,48 +289,38 @@ def dashboard():
         crops = list(crops_collection.find({}).limit(3))
         market_prices = [{'crop': c['name'].split(' ')[0], 'price': f"₹{c['price']}/quintal"} for c in crops]
 
-        # Ensure table exists and load SQLite-saved fertilizers for this user only
-        ensure_table_exists()
+        # SQLite fertilizers (only on non-Vercel)
         sqlite_fertilizers = []
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT id, fertilizer_name, cost, yield_increase, application_time, date_added, status, selected_for, suitability, user_id
-                FROM dashboard_fertilizers
-                WHERE user_id = ?
-                ORDER BY id DESC
-            """, (session['user_id'],))
-            rows = cur.fetchall()
-            for r in rows:
-                sqlite_fertilizers.append({
-                    'id': r[0],
-                    'name': r[1],
-                    'cost': r[2],
-                    'yield_increase': r[3],
-                    'application_time': r[4],
-                    'date_added': r[5],
-                    'status': r[6],
-                    'selected_for': r[7],
-                    'suitability': r[8],
-                    'user_id': r[9]
-                })
-        finally:
+        if not IS_VERCEL and sqlite3:
             try:
+                ensure_table_exists()
+                conn = sqlite3.connect(DB_PATH)
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT id, fertilizer_name, cost, yield_increase, application_time, date_added, status, selected_for, suitability, user_id
+                    FROM dashboard_fertilizers
+                    WHERE user_id = ?
+                    ORDER BY id DESC
+                """, (session['user_id'],))
+                rows = cur.fetchall()
+                for r in rows:
+                    sqlite_fertilizers.append({
+                        'id': r[0], 'name': r[1], 'cost': r[2], 'yield_increase': r[3],
+                        'application_time': r[4], 'date_added': r[5], 'status': r[6],
+                        'selected_for': r[7], 'suitability': r[8], 'user_id': r[9]
+                    })
                 conn.close()
-            except:
-                pass
+            except Exception as e:
+                print(f"SQLite error: {e}")
 
-        # Load only the crops that belong to the logged-in user (MongoDB)
+        # User crops from MongoDB
         user_crops = []
         try:
             cursor = crops_collection.find({"user_id": session['user_id']})
             for c in cursor:
                 user_crops.append({
-                    'id': str(c.get('_id')),
-                    'name': c.get('name'),
-                    'season': c.get('season'),
-                    'created_at': c.get('created_at')
+                    'id': str(c.get('_id')), 'name': c.get('name'),
+                    'season': c.get('season'), 'created_at': c.get('created_at')
                 })
         except Exception as e:
             print(f"Error loading user crops: {e}")
@@ -345,19 +387,21 @@ def delete_fertilizer(fertilizer_id):
         flash('Not authenticated', 'error')
         return redirect(url_for('login'))
 
+    if IS_VERCEL or not sqlite3:
+        flash('Feature not available', 'error')
+        return redirect(url_for('dashboard'))
+
     try:
         ensure_table_exists()
         conn = sqlite3.connect(DB_PATH)
-        try:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM dashboard_fertilizers WHERE id = ? AND user_id = ?", (fertilizer_id, session['user_id']))
-            conn.commit()
-            if cur.rowcount == 0:
-                flash('Fertilizer not found or not permitted to delete', 'error')
-            else:
-                flash('Fertilizer deleted', 'success')
-        finally:
-            conn.close()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM dashboard_fertilizers WHERE id = ? AND user_id = ?", (fertilizer_id, session['user_id']))
+        conn.commit()
+        if cur.rowcount == 0:
+            flash('Fertilizer not found or not permitted to delete', 'error')
+        else:
+            flash('Fertilizer deleted', 'success')
+        conn.close()
     except Exception as e:
         flash(f'Error deleting fertilizer: {e}', 'error')
 
@@ -372,12 +416,7 @@ def delete_crop(crop_id):
         return redirect(url_for('login'))
 
     try:
-        try:
-            obj_id = ObjectId(crop_id)
-        except Exception:
-            flash('Invalid crop id', 'error')
-            return redirect(url_for('dashboard'))
-
+        obj_id = ObjectId(crop_id)
         res = crops_collection.delete_one({"_id": obj_id, "user_id": session['user_id']})
         if res.deleted_count == 0:
             flash('Crop not found or not permitted to delete', 'error')
@@ -391,26 +430,28 @@ def delete_crop(crop_id):
 # ---------------- Tighten existing AJAX delete (keeps JSON behavior) ------------------
 @app.route('/delete_dashboard_fertilizer', methods=['POST'])
 def delete_dashboard_fertilizer():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'error': 'Not authenticated'}), 401
+
+    if IS_VERCEL or not sqlite3:
+        return jsonify({'status': 'error', 'error': 'Feature not available'}), 400
+
     try:
         payload = request.get_json() or {}
         fid = payload.get('id')
         if not fid:
             return jsonify({'status': 'error', 'error': 'Missing id'}), 400
 
-        if 'user_id' not in session:
-            return jsonify({'status': 'error', 'error': 'Not authenticated'}), 401
-
         ensure_table_exists()
         conn = sqlite3.connect(DB_PATH)
-        try:
-            cur = conn.cursor()
-            cur.execute("DELETE FROM dashboard_fertilizers WHERE id = ? AND user_id = ?", (fid, session['user_id']))
-            conn.commit()
-            if cur.rowcount == 0:
-                return jsonify({'status': 'error', 'error': 'Not found or not permitted'}), 404
-            return jsonify({'status': 'success'})
-        finally:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM dashboard_fertilizers WHERE id = ? AND user_id = ?", (fid, session['user_id']))
+        conn.commit()
+        if cur.rowcount == 0:
             conn.close()
+            return jsonify({'status': 'error', 'error': 'Not found or not permitted'}), 404
+        conn.close()
+        return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
@@ -442,7 +483,7 @@ def crop_suggestion():
     recommendations = []
     form_data = {}
     
-    if request.method == 'POST':
+    if request.method == 'POST' and crop_dataset:
         try:
             # Get form data based on CSV structure
             form_data = {
@@ -459,44 +500,24 @@ def crop_suggestion():
             required_fields = ['nitrogen', 'phosphorus', 'potassium', 'temperature', 'humidity', 'ph', 'rainfall']
             if not all([form_data[field] for field in required_fields]):
                 flash('Please fill in all required fields!', 'error')
-                return render_template('crop_suggestion.html', 
-                                     user_name=session.get('user_name'),
-                                     recommendations=[],
-                                     form_data=form_data)
-            
-            # Get crop recommendations using the dataset
-            recommendations = crop_dataset.get_crop_recommendations(
-                nitrogen=form_data['nitrogen'],
-                phosphorus=form_data['phosphorus'],
-                potassium=form_data['potassium'],
-                temperature=form_data['temperature'],
-                humidity=form_data['humidity'],
-                ph=form_data['ph'],
-                rainfall=form_data['rainfall']
-            )
-            
-            # Store recommendation in database for future reference
-            try:
-                recommendation_data = {
-                    'user_id': session['user_id'],
-                    'input_parameters': form_data,
-                    'recommendations': recommendations,
-                    'created_at': datetime.utcnow()
-                }
-                db.crop_recommendations.insert_one(recommendation_data)
+            else:
+                # Get crop recommendations using the dataset
+                recommendations = crop_dataset.get_crop_recommendations(
+                    nitrogen=form_data['nitrogen'],
+                    phosphorus=form_data['phosphorus'],
+                    potassium=form_data['potassium'],
+                    temperature=form_data['temperature'],
+                    humidity=form_data['humidity'],
+                    ph=form_data['ph'],
+                    rainfall=form_data['rainfall']
+                )
                 
                 if recommendations:
-                    flash(f'Found {len(recommendations)} crop recommendations based on your soil and climate conditions!', 'success')
+                    flash(f'Found {len(recommendations)} crop recommendations!', 'success')
                 else:
-                    flash('No suitable crops found for the given conditions. Please adjust your parameters.', 'warning')
-                    
-            except Exception as e:
-                print(f"Error saving recommendation: {e}")
-                
-        except ValueError as e:
-            flash('Please enter valid numeric values for all fields!', 'error')
+                    flash('No suitable crops found.', 'warning')
         except Exception as e:
-            flash(f'Error processing recommendations: {str(e)}', 'error')
+            flash(f'Error: {str(e)}', 'error')
     
     return render_template('crop_suggestion.html', 
                          user_name=session.get('user_name'),
@@ -562,7 +583,7 @@ def fertilizer_advice():
     form_data = {}
     crop_name = ""
     
-    if request.method == 'POST':
+    if request.method == 'POST' and fertilizer_dataset:
         try:
             # Get form data
             form_data = {
@@ -579,45 +600,25 @@ def fertilizer_advice():
             required_fields = ['nitrogen', 'phosphorus', 'potassium', 'crop', 'temperature', 'humidity', 'moisture']
             if not all([form_data[field] for field in required_fields]):
                 flash('Please fill in all required fields!', 'error')
-                return render_template('fertilizer_advice.html', 
-                                     user_name=session.get('user_name'),
-                                     recommendations=[],
-                                     form_data=form_data)
-            
-            crop_name = form_data['crop'].title()
-            
-            # Get AI-powered fertilizer recommendations using the dataset
-            recommendations = fertilizer_dataset.get_fertilizer_recommendations(
-                nitrogen=form_data['nitrogen'],
-                phosphorus=form_data['phosphorus'],
-                potassium=form_data['potassium'],
-                crop=form_data['crop'],
-                temperature=form_data['temperature'],
-                humidity=form_data['humidity'],
-                moisture=form_data['moisture']
-            )
-            
-            if not recommendations:
-                flash('No suitable fertilizer recommendations found for your conditions. Please check your inputs.', 'warning')
             else:
-                flash(f'Found {len(recommendations)} AI-powered fertilizer recommendations for {crop_name}!', 'success')
-            
-            # Store recommendation in database
-            try:
-                recommendation_data = {
-                    'user_id': session['user_id'],
-                    'input_parameters': form_data,
-                    'recommendations': recommendations,
-                    'crop_name': crop_name,
-                    'recommendation_type': 'fertilizer',
-                    'created_at': datetime.utcnow()
-                }
-                db.fertilizer_recommendations.insert_one(recommendation_data)
-            except Exception as e:
-                print(f"Error saving fertilizer recommendation: {e}")
+                crop_name = form_data['crop'].title()
                 
-        except ValueError as e:
-            flash('Please enter valid numeric values for all fields!', 'error')
+                # Get AI-powered fertilizer recommendations using the dataset
+                recommendations = fertilizer_dataset.get_fertilizer_recommendations(
+                    nitrogen=form_data['nitrogen'],
+                    phosphorus=form_data['phosphorus'],
+                    potassium=form_data['potassium'],
+                    crop=form_data['crop'],
+                    temperature=form_data['temperature'],
+                    humidity=form_data['humidity'],
+                    moisture=form_data['moisture']
+                )
+                
+                if recommendations:
+                    flash(f'Found {len(recommendations)} AI-powered fertilizer recommendations for {crop_name}!', 'success')
+                else:
+                    flash('No suitable fertilizer recommendations found for your conditions. Please check your inputs.', 'warning')
+            
         except Exception as e:
             flash(f'Error processing recommendations: {str(e)}', 'error')
             print(f"Fertilizer recommendation error: {e}")
@@ -631,7 +632,9 @@ def fertilizer_advice():
 @app.route('/save_progress', methods=['POST'])
 def save_progress():
     if 'user_id' not in session:
-        return jsonify({'status':'error','error':'Not authenticated'}), 401
+        return jsonify({'status': 'error', 'error': 'Not authenticated'}), 401
+    if IS_VERCEL or not sqlite3:
+        return jsonify({'status': 'error', 'error': 'Feature not available on this platform'}), 400
     try:
         payload = request.get_json() or {}
         crop_name = payload.get('crop_name')
@@ -640,164 +643,91 @@ def save_progress():
         task_timeline = payload.get('task_timeline', [])
         status = payload.get('status', 'monitoring')
         recommendation = payload.get('recommendation', '')
-
         if not crop_name or not start_date or not harvest_date:
-            return jsonify({'status':'error','error':'Missing required fields'}), 400
-
+            return jsonify({'status': 'error', 'error': 'Missing required fields'}), 400
         ensure_progress_table()
         conn = sqlite3.connect(PROGRESS_DB_PATH)
-        try:
-            cur = conn.cursor()
-            cur.execute("""
-                INSERT INTO crop_progress (user_id, crop_name, start_date, harvest_date, task_timeline, status, recommendation)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                session['user_id'],
-                crop_name,
-                start_date,
-                harvest_date,
-                json.dumps(task_timeline, default=str),
-                status,
-                recommendation
-            ))
-            conn.commit()
-            return jsonify({'status':'success', 'id': cur.lastrowid})
-        finally:
-            conn.close()
+        cur = conn.cursor()
+        cur.execute("""INSERT INTO crop_progress (user_id, crop_name, start_date, harvest_date, task_timeline, status, recommendation)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (session['user_id'], crop_name, start_date, harvest_date, json.dumps(task_timeline), status, recommendation))
+        conn.commit()
+        lastid = cur.lastrowid
+        conn.close()
+        return jsonify({'status': 'success', 'id': lastid})
     except Exception as e:
-        return jsonify({'status':'error','error': str(e)}), 500
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 @app.route('/get_progress')
 def get_progress():
     if 'user_id' not in session:
-        return jsonify([])  # return empty for anonymous
+        return jsonify([])
+    if IS_VERCEL or not sqlite3:
+        return jsonify([])
     try:
         ensure_progress_table()
         conn = sqlite3.connect(PROGRESS_DB_PATH)
         conn.row_factory = sqlite3.Row
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM crop_progress WHERE user_id = ? ORDER BY id DESC", (session['user_id'],))
-            rows = cur.fetchall()
-            out = []
-            today = datetime.utcnow().date()
-            for r in rows:
-                tasks = []
-                try:
-                    tasks = json.loads(r['task_timeline'] or '[]')
-                except:
-                    tasks = []
-                # Normalize tasks: expect {'name':..,'date': 'YYYY-MM-DD', 'done': bool}
-                for t in tasks:
-                    if 'done' not in t:
-                        t['done'] = bool(t.get('done', False))
-
-                # Determine next task and recommendation
-                next_task = None
-                rec = ''
-                harvest_date = None
-                try:
-                    harvest_date = datetime.fromisoformat(r['harvest_date']).date()
-                except:
-                    try:
-                        harvest_date = datetime.strptime(r['harvest_date'], '%Y-%m-%d').date()
-                    except:
-                        harvest_date = None
-
-                # If any task date == today
-                today_tasks = [t for t in tasks if t.get('date') and datetime.fromisoformat(t['date']).date() == today]
-                if today_tasks:
-                    rec = f"Perform today's task: {today_tasks[0].get('name')}"
-                    next_task = today_tasks[0]
-                else:
-                    # upcoming tasks > today
-                    future = []
-                    for t in tasks:
-                        try:
-                            td = datetime.fromisoformat(t['date']).date()
-                            if td > today and not t.get('done'):
-                                future.append((td, t))
-                        except:
-                            continue
-                    if future:
-                        future.sort(key=lambda x: x[0])
-                        next_task = future[0][1]
-                        rec = f"Next upcoming task: {next_task.get('name')} on {future[0][0].isoformat()}"
-                    else:
-                        if harvest_date and today > harvest_date:
-                            rec = "Harvest completed — check final yield."
-                        else:
-                            # If started recently or no clear tasks
-                            try:
-                                start_date = datetime.fromisoformat(r['start_date']).date()
-                                if (today - start_date).days <= 3 or not tasks:
-                                    rec = "Land preparation ongoing."
-                                else:
-                                    rec = "Monitoring in progress."
-                            except:
-                                rec = "Monitoring in progress."
-
-                # progress percent
-                total_tasks = len(tasks) or 0
-                done_tasks = sum(1 for t in tasks if t.get('done'))
-                progress_percent = int((done_tasks / total_tasks) * 100) if total_tasks else 0
-
-                out.append({
-                    'id': r['id'],
-                    'crop_name': r['crop_name'],
-                    'start_date': r['start_date'],
-                    'harvest_date': r['harvest_date'],
-                    'tasks': tasks,
-                    'status': r['status'],
-                    'recommendation': rec,
-                    'next_task': next_task,
-                    'progress_percent': progress_percent
-                })
-            return jsonify(out)
-        finally:
-            conn.close()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM crop_progress WHERE user_id = ? ORDER BY id DESC", (session['user_id'],))
+        rows = cur.fetchall()
+        out = []
+        today = datetime.utcnow().date()
+        for r in rows:
+            tasks = json.loads(r['task_timeline'] or '[]') if r['task_timeline'] else []
+            progress_percent = 0
+            if tasks:
+                done = sum(1 for t in tasks if t.get('done'))
+                progress_percent = int((done / len(tasks)) * 100)
+            out.append({'id': r['id'], 'crop_name': r['crop_name'], 'start_date': r['start_date'],
+                        'harvest_date': r['harvest_date'], 'tasks': tasks, 'status': r['status'],
+                        'recommendation': r['recommendation'] or '', 'progress_percent': progress_percent})
+        conn.close()
+        return jsonify(out)
     except Exception as e:
-        return jsonify({'status':'error','error': str(e)}), 500
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 @app.route('/mark_task_done', methods=['POST'])
 def mark_task_done():
     if 'user_id' not in session:
-        return jsonify({'status':'error','error':'Not authenticated'}), 401
+        return jsonify({'status': 'error', 'error': 'Not authenticated'}), 401
+    if IS_VERCEL or not sqlite3:
+        return jsonify({'status': 'error', 'error': 'Feature not available'}), 400
     try:
         payload = request.get_json() or {}
         pid = payload.get('progress_id')
         task_index = payload.get('task_index')
         if pid is None or task_index is None:
-            return jsonify({'status':'error','error':'Missing progress_id or task_index'}), 400
-
+            return jsonify({'status': 'error', 'error': 'Missing fields'}), 400
         ensure_progress_table()
         conn = sqlite3.connect(PROGRESS_DB_PATH)
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT task_timeline FROM crop_progress WHERE id = ? AND user_id = ?", (pid, session['user_id']))
-            row = cur.fetchone()
-            if not row:
-                return jsonify({'status':'error','error':'Not found'}), 404
-            tasks = json.loads(row[0] or '[]')
-            if task_index < 0 or task_index >= len(tasks):
-                return jsonify({'status':'error','error':'Invalid task index'}), 400
-            tasks[task_index]['done'] = True
-            # Update status if all done
-            all_done = all(t.get('done') for t in tasks) if tasks else False
-            new_status = 'completed' if all_done else 'monitoring'
-            cur.execute("UPDATE crop_progress SET task_timeline = ?, status = ? WHERE id = ?", (json.dumps(tasks), new_status, pid))
-            conn.commit()
-            return jsonify({'status':'success','new_status': new_status})
-        finally:
+        cur = conn.cursor()
+        cur.execute("SELECT task_timeline FROM crop_progress WHERE id = ? AND user_id = ?", (pid, session['user_id']))
+        row = cur.fetchone()
+        if not row:
             conn.close()
+            return jsonify({'status': 'error', 'error': 'Not found'}), 404
+        tasks = json.loads(row[0] or '[]')
+        if task_index < 0 or task_index >= len(tasks):
+            conn.close()
+            return jsonify({'status': 'error', 'error': 'Invalid index'}), 400
+        tasks[task_index]['done'] = True
+        all_done = all(t.get('done') for t in tasks)
+        new_status = 'completed' if all_done else 'monitoring'
+        cur.execute("UPDATE crop_progress SET task_timeline = ?, status = ? WHERE id = ?", (json.dumps(tasks), new_status, pid))
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'success', 'new_status': new_status})
     except Exception as e:
-        return jsonify({'status':'error','error': str(e)}), 500
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
-# Ensure progress table on startup
-ensure_progress_table()
+# Initialize on startup (only for non-Vercel)
+if not IS_VERCEL and sqlite3:
+    ensure_progress_table()
 
 # ------------------ Run App ------------------ #
 if __name__ == '__main__':
     print("🚀 Starting Farming Assistant Application with MongoDB...")
     init_db()
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
