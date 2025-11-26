@@ -5,11 +5,13 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'farming-assistant-secret-key-2024')
-    MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/farming_assistant')
+    # Default to Atlas URI from environment
+    MONGO_URI = os.getenv('MONGO_URI')
     
 class DevelopmentConfig(Config):
     DEBUG = True
-    MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/farming_assistant_dev')
+    # Use same Atlas URI for development (or set a different one in .env)
+    MONGO_URI = os.getenv('MONGO_URI')
 
 class ProductionConfig(Config):
     DEBUG = False

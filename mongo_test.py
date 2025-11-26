@@ -1,14 +1,32 @@
 from pymongo import MongoClient
-from datetime import datetime
+from datetime import datetime, timezone
 import bcrypt
+import os
+from dotenv import load_dotenv
+from urllib.parse import quote_plus
+
+load_dotenv()
 
 def test_mongo_connection():
     try:
-        # Connect to your farmerdb
-        client = MongoClient('mongodb://localhost:27017/farmerdb')
+        # Get credentials from environment
+        mongo_user = os.getenv('MONGO_USER', 'admin')
+        mongo_password = os.getenv('MONGO_PASSWORD', '')
+        mongo_cluster = os.getenv('MONGO_CLUSTER', 'cluster0.c3ia7tt.mongodb.net')
+        
+        # Build connection string with encoded password
+        encoded_password = quote_plus(mongo_password)
+        mongo_uri = f"mongodb+srv://{mongo_user}:{encoded_password}@{mongo_cluster}/farmerdb?retryWrites=true&w=majority&appName=Cluster0"
+        
+        print(f"🔗 Connecting to MongoDB Atlas...")
+        client = MongoClient(mongo_uri)
+        
+        # Test connection
+        client.admin.command('ping')
+        
         db = client.farmerdb
         
-        print("✅ Connected to MongoDB farmerdb successfully!")
+        print("✅ Connected to MongoDB Atlas farmerdb successfully!")
         
         # List all collections
         collections = db.list_collection_names()
@@ -28,7 +46,7 @@ def test_mongo_connection():
             "name": "Test Farmer",
             "email": "test@farmer.com",
             "password": bcrypt.hashpw("password123".encode('utf-8'), bcrypt.gensalt()),
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
             "role": "farmer"
         }
         

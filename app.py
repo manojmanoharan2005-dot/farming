@@ -12,6 +12,7 @@ from add_dashboard_fertilizer import dashboard_fertilizer_bp, DB_PATH, ensure_ta
 from crop_progress import progress_bp
 import sqlite3
 import json
+from urllib.parse import quote_plus
 
 # Load environment variables
 load_dotenv()
@@ -23,8 +24,24 @@ app.register_blueprint(progress_bp)
 
 # ------------------ MongoDB Configuration ------------------ #
 try:
-    mongo_uri = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+    # Get credentials from environment
+    mongo_user = os.getenv('MONGO_USER', 'admin')
+    mongo_password = os.getenv('MONGO_PASSWORD', '')
+    mongo_cluster = os.getenv('MONGO_CLUSTER', 'cluster0.c3ia7tt.mongodb.net')
+    
+    if not mongo_password:
+        raise Exception("MONGO_PASSWORD environment variable not set. Please check your .env file.")
+    
+    # Build connection string with encoded password
+    encoded_password = quote_plus(mongo_password)
+    mongo_uri = f"mongodb+srv://{mongo_user}:{encoded_password}@{mongo_cluster}/farmerdb?retryWrites=true&w=majority&appName=Cluster0"
+    
+    # Connect to MongoDB Atlas
     client = MongoClient(mongo_uri)
+    
+    # Test the connection
+    client.admin.command('ping')
+    
     db = client["farmerdb"]   # Ensure the database name is farmerdb
 
     # Collections
@@ -33,10 +50,11 @@ try:
     weather_collection = db["weather"]
     market_collection = db["market_prices"]
 
-    print("✅ Connected to MongoDB farmerdb successfully!")
+    print("✅ Connected to MongoDB Atlas farmerdb successfully!")
     print(f"Available collections: {db.list_collection_names()}")
 except Exception as e:
     print(f"❌ MongoDB connection error: {e}")
+    raise e  # Stop the app if DB connection fails
 
 # ------------------ Helper Functions ------------------ #
 def hash_password(password):
