@@ -1,7 +1,6 @@
-Flask>=2.0
-gunicorn>=20.1
-Jinja2>=3.0
-requests>=2.0
-# add your other dependencies below, e.g.
-# SQLAlchemy>=1.4
-# psycopg2-binary>=2.9
+flask
+pymongo
+python-dotenv
+bcrypt
+dnspython
+pandas
